@@ -1637,6 +1637,10 @@ public class StreamingDataflowWorker {
             stateCache
                 .forComputation(state.computationId)
                 .invalidate(request.getKey(), request.getShardingKey());
+
+            LOG.info("Commit failed for computation '{}' on key '{}'({}) and token {} with status: {}. ",
+                state.computationId, request.getKey().toStringUtf8(),
+                Long.toHexString(request.getShardingKey()), request.getWorkToken(), status);
           }
           activeCommitBytes.addAndGet(-size);
           // This may throw an exception if the commit was not active, which is possible if it

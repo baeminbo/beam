@@ -427,7 +427,9 @@ enum CommitStatus {
   ABORTED = 7;
 }
 
-message CommitWorkResponse {}
+message CommitWorkResponse {
+  map<fixed64, CommitStatus> commit_errors = 1;
+}
 
 // Configuration
 
