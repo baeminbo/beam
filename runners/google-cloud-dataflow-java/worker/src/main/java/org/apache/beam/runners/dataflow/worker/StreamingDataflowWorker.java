@@ -1668,9 +1668,18 @@ public class StreamingDataflowWorker {
         request,
         (Windmill.CommitStatus status) -> {
           if (status != Windmill.CommitStatus.OK) {
-            readerCache.invalidateReader(
+            // Windmill will reassign the work and retry it. The retried work may have the same
+            // computation, key and sharding key, but a different workToken.
+            WindmillComputationKey computationKey =
                 WindmillComputationKey.create(
-                    state.computationId, request.getKey(), request.getShardingKey()));
+                    state.computationId, request.getKey(), request.getShardingKey());
+            LOG.info(
+                "CommitWork for computationKey '{}' and workToken '{}' failed with status:{}. "
+                    + "The work will be retried by Dataflow.",
+                computationKey,
+                request.getWorkToken(),
+                status);
+            readerCache.invalidateReader(computationKey);
             stateCache
                 .forComputation(state.computationId)
                 .invalidate(request.getKey(), request.getShardingKey());
