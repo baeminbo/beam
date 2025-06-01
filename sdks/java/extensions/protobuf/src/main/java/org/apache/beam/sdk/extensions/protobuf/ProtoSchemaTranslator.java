@@ -17,9 +17,6 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
-import static org.apache.beam.sdk.util.Preconditions.checkArgumentNotNull;
-import static org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Preconditions.checkArgument;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -44,6 +41,7 @@ import org.apache.beam.sdk.schemas.logicaltypes.EnumerationType;
 import org.apache.beam.sdk.schemas.logicaltypes.NanosDuration;
 import org.apache.beam.sdk.schemas.logicaltypes.NanosInstant;
 import org.apache.beam.sdk.schemas.logicaltypes.OneOfType;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Preconditions;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Lists;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Maps;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Sets;
@@ -201,7 +199,7 @@ class ProtoSchemaTranslator {
         subFields.add(
             withFieldNumber(
                 Field.nullable(fieldDescriptor.getName(), fieldType), fieldDescriptor.getNumber()));
-        checkArgument(
+        Preconditions.checkArgument(
             enumIds.putIfAbsent(fieldDescriptor.getName(), fieldDescriptor.getNumber()) == null);
       }
       FieldType oneOfType = FieldType.logicalType(OneOfType.create(subFields, enumIds));
@@ -395,11 +393,10 @@ class ProtoSchemaTranslator {
         case ROW:
         case ARRAY:
         case ITERABLE:
-          Field field = Field.of("OPTION", fieldType);
-          ProtoDynamicMessageSchema schema = ProtoDynamicMessageSchema.forSchema(Schema.of(field));
-          @SuppressWarnings("rawtypes")
-          ProtoDynamicMessageSchema.Convert convert = schema.createConverter(field);
-          Object value = checkArgumentNotNull(convert.convertFromProtoValue(entry.getValue()));
+          Object value =
+              Preconditions.checkNotNull(
+                  ProtobufDynamicMessageSchema.createConverter(fieldDescriptor, fieldType)
+                      .convertFromProtoObject(entry.getValue()));
           optionsBuilder.setOption(prefix + fieldDescriptor.getFullName(), fieldType, value);
           break;
         case MAP:
