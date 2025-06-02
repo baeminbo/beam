@@ -41,14 +41,14 @@ public class ProtoSchemaTranslatorTest {
   @Test
   public void testPrimitiveSchema() {
     assertEquals(
-        TestProtoSchemas.PRIMITIVE_SCHEMA,
+        TestProtoSchemas.PROTO3_PRIMITIVE_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.Primitive.class));
   }
 
   @Test
   public void testOptionalPrimitiveSchema() {
     assertEquals(
-        TestProtoSchemas.OPTIONAL_PRIMITIVE_SCHEMA,
+        TestProtoSchemas.PROTO2_OPTIONAL_PRIMITIVE_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto2SchemaMessages.OptionalPrimitive.class));
   }
 
@@ -62,70 +62,70 @@ public class ProtoSchemaTranslatorTest {
   @Test
   public void testRequiredPrimitiveSchema() {
     assertEquals(
-        TestProtoSchemas.REQUIRED_PRIMITIVE_SCHEMA,
+        TestProtoSchemas.PROTO2_REQUIRED_PRIMITIVE_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto2SchemaMessages.RequiredPrimitive.class));
   }
 
   @Test
   public void testRepeatedSchema() {
     assertEquals(
-        TestProtoSchemas.REPEATED_SCHEMA,
+        TestProtoSchemas.PROTO3_REPEATED_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.RepeatPrimitive.class));
   }
 
   @Test
   public void testMapPrimitiveSchema() {
     assertEquals(
-        TestProtoSchemas.MAP_PRIMITIVE_SCHEMA,
+        TestProtoSchemas.PROTO3_MAP_PRIMITIVE_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.MapPrimitive.class));
   }
 
   @Test
   public void testNestedSchema() {
     assertEquals(
-        TestProtoSchemas.NESTED_SCHEMA,
+        TestProtoSchemas.PROTO3_NESTED_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.Nested.class));
   }
 
   @Test
   public void testOneOfSchema() {
     assertEquals(
-        TestProtoSchemas.ONEOF_SCHEMA,
+        TestProtoSchemas.PROTO3_ONEOF_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.OneOf.class));
   }
 
   @Test
   public void testReversedOneOfSchema() {
     assertEquals(
-        TestProtoSchemas.REVERSED_ONEOF_SCHEMA,
+        TestProtoSchemas.PROTO3_REVERSED_ONEOF_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.ReversedOneOf.class));
   }
 
   @Test
   public void testNonContiguousOneOfSchema() {
     assertEquals(
-        TestProtoSchemas.NONCONTIGUOUS_ONEOF_SCHEMA,
+        TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.NonContiguousOneOf.class));
   }
 
   @Test
   public void testNestedOneOfSchema() {
     assertEquals(
-        TestProtoSchemas.OUTER_ONEOF_SCHEMA,
+        TestProtoSchemas.PROTO3_OUTER_ONEOF_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.OuterOneOf.class));
   }
 
   @Test
   public void testWrapperMessagesSchema() {
     assertEquals(
-        TestProtoSchemas.WKT_MESSAGE_SCHEMA,
+        TestProtoSchemas.PROTO3_WKT_MESSAGE_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.WktMessage.class));
   }
 
   @Test
   public void testEmptySchema() {
     assertEquals(
-        TestProtoSchemas.EMPTY_SCHEMA,
+        TestProtoSchemas.PROTO3_EMPTY_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.Empty.class));
   }
 
@@ -172,7 +172,7 @@ public class ProtoSchemaTranslatorTest {
   @Test
   public void testOptionalNestedSchema() {
     assertEquals(
-        TestProtoSchemas.OPTIONAL_NESTED_SCHEMA,
+        TestProtoSchemas.PROTO2_OPTIONAL_NESTED_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto2SchemaMessages.OptionalNested.class));
   }
 
@@ -186,7 +186,7 @@ public class ProtoSchemaTranslatorTest {
   @Test
   public void testRequiredNestedSchema() {
     assertEquals(
-        TestProtoSchemas.REQUIRED_NESTED_SCHEMA,
+        TestProtoSchemas.PROTO2_REQUIRED_NESTED_SCHEMA,
         ProtoSchemaTranslator.getSchema(Proto2SchemaMessages.RequiredNested.class));
   }
 

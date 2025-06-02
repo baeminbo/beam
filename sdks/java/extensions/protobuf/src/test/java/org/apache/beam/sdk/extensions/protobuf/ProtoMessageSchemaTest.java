@@ -17,54 +17,54 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.MAP_PRIMITIVE_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.MAP_PRIMITIVE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.MAP_PRIMITIVE_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NESTED_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NESTED_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NESTED_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NONCONTIGUOUS_ONEOF_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NONCONTIGUOUS_ONEOF_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NULL_MAP_PRIMITIVE_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NULL_MAP_PRIMITIVE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NULL_REPEATED_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.NULL_REPEATED_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_PROTO_BOOL;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_PROTO_INT32;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_PROTO_PRIMITIVE;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_PROTO_STRING;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_ROW_BOOL;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_ROW_INT32;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_ROW_PRIMITIVE;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_ROW_STRING;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.ONEOF_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.OPTIONAL_PRIMITIVE_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.OPTIONAL_PRIMITIVE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.OPTIONAL_PRIMITIVE_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.OUTER_ONEOF_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.OUTER_ONEOF_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.OUTER_ONEOF_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PRIMITIVE_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PRIMITIVE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PRIMITIVE_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REPEATED_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REPEATED_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REPEATED_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REQUIRED_PRIMITIVE_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REQUIRED_PRIMITIVE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REQUIRED_PRIMITIVE_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_PROTO_BOOL;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_PROTO_INT32;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_PROTO_PRIMITIVE;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_PROTO_STRING;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_ROW_BOOL;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_ROW_INT32;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_ROW_PRIMITIVE;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.REVERSED_ONEOF_ROW_STRING;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.WKT_MESSAGE_PROTO;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.WKT_MESSAGE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.WKT_MESSAGE_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.WKT_MESSAGE_SHUFFLED_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_MAP_PRIMITIVE_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_MAP_PRIMITIVE_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_MAP_PRIMITIVE_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NESTED_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NESTED_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NESTED_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_MAP_PRIMITIVE_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_MAP_PRIMITIVE_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_REPEATED_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_REPEATED_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_PROTO_BOOL;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_PROTO_INT32;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_PROTO_PRIMITIVE;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_PROTO_STRING;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_ROW_BOOL;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_ROW_INT32;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_ROW_PRIMITIVE;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_ROW_STRING;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO2_OPTIONAL_PRIMITIVE_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO2_OPTIONAL_PRIMITIVE_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_PRIMITIVE_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_PRIMITIVE_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO2_OPTIONAL_PRIMITIVE_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_PRIMITIVE_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REPEATED_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REPEATED_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REPEATED_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO2_REQUIRED_PRIMITIVE_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO2_REQUIRED_PRIMITIVE_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO2_REQUIRED_PRIMITIVE_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_PROTO_BOOL;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_PROTO_INT32;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_PROTO_PRIMITIVE;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_PROTO_STRING;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_BOOL;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_INT32;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_PRIMITIVE;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_STRING;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_PROTO;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_SCHEMA;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_SHUFFLED_ROW;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.withFieldNumber;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.withTypeName;
 import static org.junit.Assert.assertEquals;
@@ -99,230 +99,230 @@ public class ProtoMessageSchemaTest {
   @Test
   public void testPrimitiveSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(Primitive.class));
-    assertEquals(PRIMITIVE_SCHEMA, schema);
+    assertEquals(PROTO3_PRIMITIVE_SCHEMA, schema);
   }
 
   @Test
   public void testPrimitiveProtoToRow() {
     SerializableFunction<Primitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(Primitive.class));
-    assertEquals(PRIMITIVE_ROW, toRow.apply(PRIMITIVE_PROTO));
+    assertEquals(PROTO3_PRIMITIVE_ROW, toRow.apply(PROTO3_PRIMITIVE_PROTO));
   }
 
   @Test
   public void testPrimitiveRowToProto() {
     SerializableFunction<Row, Primitive> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(Primitive.class));
-    assertEquals(PRIMITIVE_PROTO, fromRow.apply(PRIMITIVE_ROW));
+    assertEquals(PROTO3_PRIMITIVE_PROTO, fromRow.apply(PROTO3_PRIMITIVE_ROW));
   }
 
   @Test
   public void testOptionalPrimitiveSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(OptionalPrimitive.class));
-    assertEquals(OPTIONAL_PRIMITIVE_SCHEMA, schema);
+    assertEquals(PROTO2_OPTIONAL_PRIMITIVE_SCHEMA, schema);
   }
 
   @Test
   public void testOptionalPrimitiveProtoToRow() {
     SerializableFunction<OptionalPrimitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(OptionalPrimitive.class));
-    assertEquals(OPTIONAL_PRIMITIVE_ROW, toRow.apply(OPTIONAL_PRIMITIVE_PROTO));
+    assertEquals(PROTO2_OPTIONAL_PRIMITIVE_ROW, toRow.apply(PROTO2_OPTIONAL_PRIMITIVE_PROTO));
   }
 
   @Test
   public void testOptionalPrimitiveRowToProto() {
     SerializableFunction<Row, OptionalPrimitive> fromRow =
-        new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(OptionalPrimitive.class));
-    assertEquals(OPTIONAL_PRIMITIVE_PROTO, fromRow.apply(OPTIONAL_PRIMITIVE_ROW));
+        new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(Proto2SchemaMessages.OptionalPrimitive.class));
+    assertEquals(PROTO2_OPTIONAL_PRIMITIVE_PROTO, fromRow.apply(PROTO2_OPTIONAL_PRIMITIVE_ROW));
   }
 
   @Test
   public void testRequiredPrimitiveSchema() {
-    Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(RequiredPrimitive.class));
-    assertEquals(REQUIRED_PRIMITIVE_SCHEMA, schema);
+    Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(Proto2SchemaMessages.RequiredPrimitive.class));
+    assertEquals(PROTO2_REQUIRED_PRIMITIVE_SCHEMA, schema);
   }
 
   @Test
   public void testRequiredPrimitiveProtoToRow() {
     SerializableFunction<RequiredPrimitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(RequiredPrimitive.class));
-    assertEquals(REQUIRED_PRIMITIVE_ROW, toRow.apply(REQUIRED_PRIMITIVE_PROTO));
+    assertEquals(PROTO2_REQUIRED_PRIMITIVE_ROW, toRow.apply(PROTO2_REQUIRED_PRIMITIVE_PROTO));
   }
 
   @Test
   public void testRequiredPrimitiveRowToProto() {
     SerializableFunction<Row, RequiredPrimitive> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(RequiredPrimitive.class));
-    assertEquals(REQUIRED_PRIMITIVE_PROTO, fromRow.apply(REQUIRED_PRIMITIVE_ROW));
+    assertEquals(PROTO2_REQUIRED_PRIMITIVE_PROTO, fromRow.apply(PROTO2_REQUIRED_PRIMITIVE_ROW));
   }
 
   @Test
   public void testRepeatedSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(RepeatPrimitive.class));
-    assertEquals(REPEATED_SCHEMA, schema);
+    assertEquals(PROTO3_REPEATED_SCHEMA, schema);
   }
 
   @Test
   public void testRepeatedProtoToRow() {
     SerializableFunction<RepeatPrimitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(RepeatPrimitive.class));
-    assertEquals(REPEATED_ROW, toRow.apply(REPEATED_PROTO));
+    assertEquals(PROTO3_REPEATED_ROW, toRow.apply(PROTO3_REPEATED_PROTO));
   }
 
   @Test
   public void testRepeatedRowToProto() {
     SerializableFunction<Row, RepeatPrimitive> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(RepeatPrimitive.class));
-    assertEquals(REPEATED_PROTO, fromRow.apply(REPEATED_ROW));
+    assertEquals(PROTO3_REPEATED_PROTO, fromRow.apply(PROTO3_REPEATED_ROW));
   }
 
   @Test
   public void testNullRepeatedProtoToRow() {
     SerializableFunction<RepeatPrimitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(RepeatPrimitive.class));
-    assertEquals(NULL_REPEATED_ROW, toRow.apply(NULL_REPEATED_PROTO));
+    assertEquals(PROTO3_NULL_REPEATED_ROW, toRow.apply(PROTO3_NULL_REPEATED_PROTO));
   }
 
   @Test
   public void testNullRepeatedRowToProto() {
     SerializableFunction<Row, RepeatPrimitive> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(RepeatPrimitive.class));
-    assertEquals(NULL_REPEATED_PROTO, fromRow.apply(NULL_REPEATED_ROW));
+    assertEquals(PROTO3_NULL_REPEATED_PROTO, fromRow.apply(PROTO3_NULL_REPEATED_ROW));
   }
 
   // Test map type
   @Test
   public void testMapSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(MapPrimitive.class));
-    assertEquals(MAP_PRIMITIVE_SCHEMA, schema);
+    assertEquals(PROTO3_MAP_PRIMITIVE_SCHEMA, schema);
   }
 
   @Test
   public void testMapProtoToRow() {
     SerializableFunction<MapPrimitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(MapPrimitive.class));
-    assertEquals(MAP_PRIMITIVE_ROW, toRow.apply(MAP_PRIMITIVE_PROTO));
+    assertEquals(PROTO3_MAP_PRIMITIVE_ROW, toRow.apply(PROTO3_MAP_PRIMITIVE_PROTO));
   }
 
   @Test
   public void testMapRowToProto() {
     SerializableFunction<Row, MapPrimitive> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(MapPrimitive.class));
-    assertEquals(MAP_PRIMITIVE_PROTO, fromRow.apply(MAP_PRIMITIVE_ROW));
+    assertEquals(PROTO3_MAP_PRIMITIVE_PROTO, fromRow.apply(PROTO3_MAP_PRIMITIVE_ROW));
   }
 
   @Test
   public void testNullMapProtoToRow() {
     SerializableFunction<MapPrimitive, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(MapPrimitive.class));
-    assertEquals(NULL_MAP_PRIMITIVE_ROW, toRow.apply(NULL_MAP_PRIMITIVE_PROTO));
+    assertEquals(PROTO3_NULL_MAP_PRIMITIVE_ROW, toRow.apply(PROTO3_NULL_MAP_PRIMITIVE_PROTO));
   }
 
   @Test
   public void testNullMapRowToProto() {
     SerializableFunction<Row, MapPrimitive> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(MapPrimitive.class));
-    assertEquals(NULL_MAP_PRIMITIVE_PROTO, fromRow.apply(NULL_MAP_PRIMITIVE_ROW));
+    assertEquals(PROTO3_NULL_MAP_PRIMITIVE_PROTO, fromRow.apply(PROTO3_NULL_MAP_PRIMITIVE_ROW));
   }
 
   @Test
   public void testNestedSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(Nested.class));
-    assertEquals(NESTED_SCHEMA, schema);
+    assertEquals(PROTO3_NESTED_SCHEMA, schema);
   }
 
   @Test
   public void testNestedProtoToRow() {
     SerializableFunction<Nested, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(Nested.class));
-    assertEquals(NESTED_ROW, toRow.apply(NESTED_PROTO));
+    assertEquals(PROTO3_NESTED_ROW, toRow.apply(PROTO3_NESTED_PROTO));
   }
 
   @Test
   public void testNestedRowToProto() {
     SerializableFunction<Row, Nested> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(Nested.class));
-    assertEquals(NESTED_PROTO, fromRow.apply(NESTED_ROW));
+    assertEquals(PROTO3_NESTED_PROTO, fromRow.apply(PROTO3_NESTED_ROW));
   }
 
   @Test
   public void testOneOfSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(OneOf.class));
-    assertEquals(ONEOF_SCHEMA, schema);
+    assertEquals(PROTO3_ONEOF_SCHEMA, schema);
   }
 
   @Test
   public void testOneOfProtoToRow() {
     SerializableFunction<OneOf, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(OneOf.class));
-    assertEquals(ONEOF_ROW_INT32, toRow.apply(ONEOF_PROTO_INT32));
-    assertEquals(ONEOF_ROW_BOOL, toRow.apply(ONEOF_PROTO_BOOL));
-    assertEquals(ONEOF_ROW_STRING, toRow.apply(ONEOF_PROTO_STRING));
-    assertEquals(ONEOF_ROW_PRIMITIVE, toRow.apply(ONEOF_PROTO_PRIMITIVE));
+    assertEquals(PROTO3_ONEOF_ROW_INT32, toRow.apply(PROTO3_ONEOF_PROTO_INT32));
+    assertEquals(PROTO3_ONEOF_ROW_BOOL, toRow.apply(PROTO3_ONEOF_PROTO_BOOL));
+    assertEquals(PROTO3_ONEOF_ROW_STRING, toRow.apply(PROTO3_ONEOF_PROTO_STRING));
+    assertEquals(PROTO3_ONEOF_ROW_PRIMITIVE, toRow.apply(PROTO3_ONEOF_PROTO_PRIMITIVE));
   }
 
   @Test
   public void testOneOfRowToProto() {
     SerializableFunction<Row, OneOf> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(OneOf.class));
-    assertEquals(ONEOF_PROTO_INT32, fromRow.apply(ONEOF_ROW_INT32));
-    assertEquals(ONEOF_PROTO_BOOL, fromRow.apply(ONEOF_ROW_BOOL));
-    assertEquals(ONEOF_PROTO_STRING, fromRow.apply(ONEOF_ROW_STRING));
-    assertEquals(ONEOF_PROTO_PRIMITIVE, fromRow.apply(ONEOF_ROW_PRIMITIVE));
+    assertEquals(PROTO3_ONEOF_PROTO_INT32, fromRow.apply(PROTO3_ONEOF_ROW_INT32));
+    assertEquals(PROTO3_ONEOF_PROTO_BOOL, fromRow.apply(PROTO3_ONEOF_ROW_BOOL));
+    assertEquals(PROTO3_ONEOF_PROTO_STRING, fromRow.apply(PROTO3_ONEOF_ROW_STRING));
+    assertEquals(PROTO3_ONEOF_PROTO_PRIMITIVE, fromRow.apply(PROTO3_ONEOF_ROW_PRIMITIVE));
   }
 
   @Test
   public void testOuterOneOfSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(OuterOneOf.class));
-    assertEquals(OUTER_ONEOF_SCHEMA, schema);
+    assertEquals(PROTO3_OUTER_ONEOF_SCHEMA, schema);
   }
 
   @Test
   public void testOuterOneOfProtoToRow() {
     SerializableFunction<OuterOneOf, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(OuterOneOf.class));
-    assertEquals(OUTER_ONEOF_ROW, toRow.apply(OUTER_ONEOF_PROTO));
+    assertEquals(PROTO3_OUTER_ONEOF_ROW, toRow.apply(PROTO3_OUTER_ONEOF_PROTO));
   }
 
   @Test
   public void testOuterOneOfRowToProto() {
     SerializableFunction<Row, OuterOneOf> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(OuterOneOf.class));
-    assertEquals(OUTER_ONEOF_PROTO, fromRow.apply(OUTER_ONEOF_ROW));
+    assertEquals(PROTO3_OUTER_ONEOF_PROTO, fromRow.apply(PROTO3_OUTER_ONEOF_ROW));
   }
 
   @Test
   public void testReversedOneOfProtoToRow() {
     SerializableFunction<ReversedOneOf, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(ReversedOneOf.class));
-    assertEquals(REVERSED_ONEOF_ROW_INT32, toRow.apply(REVERSED_ONEOF_PROTO_INT32));
-    assertEquals(REVERSED_ONEOF_ROW_BOOL, toRow.apply(REVERSED_ONEOF_PROTO_BOOL));
-    assertEquals(REVERSED_ONEOF_ROW_STRING, toRow.apply(REVERSED_ONEOF_PROTO_STRING));
-    assertEquals(REVERSED_ONEOF_ROW_PRIMITIVE, toRow.apply(REVERSED_ONEOF_PROTO_PRIMITIVE));
+    assertEquals(PROTO3_REVERSED_ONEOF_ROW_INT32, toRow.apply(PROTO3_REVERSED_ONEOF_PROTO_INT32));
+    assertEquals(PROTO3_REVERSED_ONEOF_ROW_BOOL, toRow.apply(PROTO3_REVERSED_ONEOF_PROTO_BOOL));
+    assertEquals(PROTO3_REVERSED_ONEOF_ROW_STRING, toRow.apply(PROTO3_REVERSED_ONEOF_PROTO_STRING));
+    assertEquals(PROTO3_REVERSED_ONEOF_ROW_PRIMITIVE, toRow.apply(PROTO3_REVERSED_ONEOF_PROTO_PRIMITIVE));
   }
 
   @Test
   public void testReversedOneOfRowToProto() {
     SerializableFunction<Row, ReversedOneOf> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(ReversedOneOf.class));
-    assertEquals(REVERSED_ONEOF_PROTO_INT32, fromRow.apply(REVERSED_ONEOF_ROW_INT32));
-    assertEquals(REVERSED_ONEOF_PROTO_BOOL, fromRow.apply(REVERSED_ONEOF_ROW_BOOL));
-    assertEquals(REVERSED_ONEOF_PROTO_STRING, fromRow.apply(REVERSED_ONEOF_ROW_STRING));
-    assertEquals(REVERSED_ONEOF_PROTO_PRIMITIVE, fromRow.apply(REVERSED_ONEOF_ROW_PRIMITIVE));
+    assertEquals(PROTO3_REVERSED_ONEOF_PROTO_INT32, fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_INT32));
+    assertEquals(PROTO3_REVERSED_ONEOF_PROTO_BOOL, fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_BOOL));
+    assertEquals(PROTO3_REVERSED_ONEOF_PROTO_STRING, fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_STRING));
+    assertEquals(PROTO3_REVERSED_ONEOF_PROTO_PRIMITIVE, fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_PRIMITIVE));
   }
 
   @Test
   public void testNonContiguousOneOfProtoToRow() {
     SerializableFunction<NonContiguousOneOf, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(NonContiguousOneOf.class));
-    assertEquals(NONCONTIGUOUS_ONEOF_ROW, toRow.apply(NONCONTIGUOUS_ONEOF_PROTO));
+    assertEquals(PROTO3_NONCONTIGUOUS_ONEOF_ROW, toRow.apply(PROTO3_NONCONTIGUOUS_ONEOF_PROTO));
   }
 
   @Test
   public void testNonContiguousOneOfRowToProto() {
     SerializableFunction<Row, NonContiguousOneOf> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(NonContiguousOneOf.class));
-    assertEquals(NONCONTIGUOUS_ONEOF_PROTO, fromRow.apply(NONCONTIGUOUS_ONEOF_ROW));
+    assertEquals(PROTO3_NONCONTIGUOUS_ONEOF_PROTO, fromRow.apply(PROTO3_NONCONTIGUOUS_ONEOF_ROW));
   }
 
   private static final EnumerationType ENUM_TYPE =
@@ -360,31 +360,31 @@ public class ProtoMessageSchemaTest {
   @Test
   public void testWktMessageSchema() {
     Schema schema = new ProtoMessageSchema().schemaFor(TypeDescriptor.of(WktMessage.class));
-    assertEquals(WKT_MESSAGE_SCHEMA, schema);
+    assertEquals(PROTO3_WKT_MESSAGE_SCHEMA, schema);
   }
 
   @Test
   public void testWktProtoToRow() {
     SerializableFunction<WktMessage, Row> toRow =
         new ProtoMessageSchema().toRowFunction(TypeDescriptor.of(WktMessage.class));
-    assertEquals(WKT_MESSAGE_ROW, toRow.apply(WKT_MESSAGE_PROTO));
+    assertEquals(PROTO3_WKT_MESSAGE_ROW, toRow.apply(PROTO3_WKT_MESSAGE_PROTO));
   }
 
   @Test
   public void testWktRowToProto() {
     SerializableFunction<Row, WktMessage> fromRow =
         new ProtoMessageSchema().fromRowFunction(TypeDescriptor.of(WktMessage.class));
-    assertEquals(WKT_MESSAGE_PROTO, fromRow.apply(WKT_MESSAGE_ROW));
+    assertEquals(PROTO3_WKT_MESSAGE_PROTO, fromRow.apply(PROTO3_WKT_MESSAGE_ROW));
   }
 
   @Test
   public void testRowToBytesAndBytesToRowFn() {
-    assertEquals(WKT_MESSAGE_ROW, convertRow(WKT_MESSAGE_ROW));
+    assertEquals(PROTO3_WKT_MESSAGE_ROW, convertRow(PROTO3_WKT_MESSAGE_ROW));
   }
 
   @Test
   public void testRowToBytesAndBytesToRowFnWithShuffledFields() {
-    assertEquals(WKT_MESSAGE_ROW, convertRow(WKT_MESSAGE_SHUFFLED_ROW));
+    assertEquals(PROTO3_WKT_MESSAGE_ROW, convertRow(PROTO3_WKT_MESSAGE_SHUFFLED_ROW));
   }
 
   private Row convertRow(Row row) {
