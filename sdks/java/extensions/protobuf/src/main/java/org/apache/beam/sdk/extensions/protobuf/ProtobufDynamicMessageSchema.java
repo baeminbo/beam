@@ -21,15 +21,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import java.io.Serializable;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.logicaltypes.EnumerationType;
 import org.apache.beam.sdk.schemas.logicaltypes.NanosDuration;
@@ -42,6 +33,17 @@ import org.apache.beam.vendor.grpc.v1p69p0.com.google.common.collect.ImmutableMa
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
+
+import java.io.Serializable;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class ProtobufDynamicMessageSchema {
   private final Descriptors.Descriptor descriptor;
@@ -171,6 +173,12 @@ public class ProtobufDynamicMessageSchema {
     return builder.build();
   }
 
+  private static @Nullable Object getProtoField(Message protoMessage, int number) {
+    Descriptors.FieldDescriptor realFieldDescriptor = protoMessage.getDescriptorForType()
+        .findFieldByNumber(number);
+    return protoMessage.getField(realFieldDescriptor);
+  }
+
   public interface Converter {
     @Nullable
     Object convertFromProtoObject(@Nullable Object protoObject);
@@ -207,9 +215,10 @@ public class ProtobufDynamicMessageSchema {
     @Override
     @Nullable
     public Object getFieldFromProtoMessage(@NonNull Message protoMessage) {
-      return !ProtoSchemaTranslator.isNullable(fieldDescriptor)
-          ? convertFromNonNullProtoObject(protoMessage.getField(fieldDescriptor))
-          : null;
+      if (!ProtoSchemaTranslator.isNullable(fieldDescriptor)) {
+        return convertFromNonNullProtoObject(Objects.requireNonNull(getProtoField(protoMessage, fieldDescriptor.getNumber())));
+      }
+      return null;
     }
 
     @Override
@@ -304,9 +313,9 @@ public class ProtobufDynamicMessageSchema {
           message ->
               beamMap.put(
                   Preconditions.checkNotNull(
-                      keyConverter.convertFromProtoObject(message.getField(keyDescriptor))),
+                      keyConverter.convertFromProtoObject(getProtoField(message, keyDescriptor.getNumber()))),
                   Preconditions.checkNotNull(
-                      valueConverter.convertFromProtoObject(message.getField(valueDescriptor)))));
+                      valueConverter.convertFromProtoObject(getProtoField(message, valueDescriptor.getNumber())))));
       return beamMap;
     }
 
@@ -401,9 +410,9 @@ public class ProtobufDynamicMessageSchema {
     public Object convertFromNonNullProtoObject(@NonNull Object protoObject) {
       Message protoTimestamp = (Message) protoObject;
       Descriptors.FieldDescriptor secondsFieldDescriptor =
-          fieldDescriptor.getMessageType().findFieldByNumber(1);
+          protoTimestamp.getDescriptorForType().findFieldByNumber(1);
       Descriptors.FieldDescriptor nanosFieldDescriptor =
-          fieldDescriptor.getMessageType().findFieldByNumber(2);
+          protoTimestamp.getDescriptorForType().findFieldByNumber(2);
       return Instant.ofEpochSecond(
           (long) protoTimestamp.getField(secondsFieldDescriptor),
           (int) protoTimestamp.getField(nanosFieldDescriptor));
@@ -430,9 +439,9 @@ public class ProtobufDynamicMessageSchema {
     public Object convertFromNonNullProtoObject(@NonNull Object protoObject) {
       Message protoDuration = (Message) protoObject;
       Descriptors.FieldDescriptor secondsFieldDescriptor =
-          fieldDescriptor.getMessageType().findFieldByNumber(1);
+          protoDuration.getDescriptorForType().findFieldByNumber(1);
       Descriptors.FieldDescriptor nanosFieldDescriptor =
-          fieldDescriptor.getMessageType().findFieldByNumber(2);
+          protoDuration.getDescriptorForType().findFieldByNumber(2);
       return Duration.ofSeconds(
           (long) protoDuration.getField(secondsFieldDescriptor),
           (int) protoDuration.getField(nanosFieldDescriptor));
