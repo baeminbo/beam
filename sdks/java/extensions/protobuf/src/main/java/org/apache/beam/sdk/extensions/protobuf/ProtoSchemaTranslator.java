@@ -186,7 +186,12 @@ class ProtoSchemaTranslator {
     of the first field in the OneOf as the location of the entire OneOf.*/
     Map<Integer, Field> oneOfFieldLocation = Maps.newHashMap();
     List<Field> fields = Lists.newArrayListWithCapacity(descriptor.getFields().size());
-    for (OneofDescriptor oneofDescriptor : descriptor.getOneofs()) {
+
+    // In proto3, an optional field is internally implemented by wrapping it in a synthetic oneof.
+    // The Descriptor.getRealOneOfs() method is then used to retrieve only the "real" oneofs that
+    // you explicitly defined, filtering out these automatically generated ones.
+    // https://github.com/protocolbuffers/protobuf/blob/main/docs/implementing_proto3_presence.md#updating-a-code-generator
+    for (OneofDescriptor oneofDescriptor : descriptor.getRealOneofs()) {
       List<Field> subFields = Lists.newArrayListWithCapacity(oneofDescriptor.getFieldCount());
       Map<String, Integer> enumIds = Maps.newHashMap();
       for (FieldDescriptor fieldDescriptor : oneofDescriptor.getFields()) {
@@ -202,13 +207,12 @@ class ProtoSchemaTranslator {
       FieldType oneOfType = FieldType.logicalType(OneOfType.create(subFields, enumIds));
       oneOfFieldLocation.put(
           oneofDescriptor.getFields().get(0).getNumber(),
-          Field.of(oneofDescriptor.getName(), oneOfType));
+          Field.nullable(oneofDescriptor.getName(), oneOfType));
     }
 
     for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
       int fieldDescriptorNumber = fieldDescriptor.getNumber();
-      if (!(oneOfComponentFields.contains(fieldDescriptorNumber)
-          && fieldDescriptor.getRealContainingOneof() != null)) {
+      if (!oneOfComponentFields.contains(fieldDescriptorNumber)) {
         // Store proto field number in metadata.
         FieldType fieldType = beamFieldTypeFromProtoField(fieldDescriptor);
         fields.add(
@@ -347,14 +351,17 @@ class ProtoSchemaTranslator {
           default:
             fieldType = FieldType.row(getSchema(protoFieldDescriptor.getMessageType()));
         }
-        // all messages are nullable in Proto
-        if (protoFieldDescriptor.isOptional()) {
-          fieldType = fieldType.withNullable(true);
-        }
         break;
       default:
         throw new RuntimeException("Field type not matched.");
     }
+
+    // Set nullable for proto3 optional, message, group, extension, oneof-contained, explicit
+    // presence (proto2 optional).
+    if (protoFieldDescriptor.hasPresence() || protoFieldDescriptor.isOptional()) {
+      fieldType = fieldType.withNullable(true);
+    }
+
     return fieldType;
   }
 
