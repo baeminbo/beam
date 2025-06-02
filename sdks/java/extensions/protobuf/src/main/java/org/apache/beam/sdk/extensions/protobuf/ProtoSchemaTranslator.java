@@ -365,10 +365,7 @@ class ProtoSchemaTranslator {
         throw new RuntimeException("Field type not matched.");
     }
 
-    // Set nullable for fields with presence (proto3 optional, message, group, extension,
-    // oneof-contained or explicit presence -- proto2 optional or required), but not
-    // "required" (to exclude proto2 required).
-    if (protoFieldDescriptor.hasPresence() && !protoFieldDescriptor.isRequired()) {
+    if (isNullable(protoFieldDescriptor)) {
       fieldType = fieldType.withNullable(true);
     }
 
