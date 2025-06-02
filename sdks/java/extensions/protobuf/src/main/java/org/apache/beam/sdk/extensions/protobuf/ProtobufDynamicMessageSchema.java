@@ -21,6 +21,15 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import java.io.Serializable;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.logicaltypes.EnumerationType;
 import org.apache.beam.sdk.schemas.logicaltypes.NanosDuration;
@@ -33,17 +42,6 @@ import org.apache.beam.vendor.grpc.v1p69p0.com.google.common.collect.ImmutableMa
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
-
-import java.io.Serializable;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class ProtobufDynamicMessageSchema {
   private final Descriptors.Descriptor descriptor;
@@ -139,7 +137,7 @@ public class ProtobufDynamicMessageSchema {
           case ProtoSchemaLogicalTypes.SInt64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.UInt32.IDENTIFIER:
           case ProtoSchemaLogicalTypes.UInt64.IDENTIFIER:
-            return new LogicalTypeConverter(
+            return new ProtoSchemaLogicalTypeConverter(
                 protoFieldDescriptor, beamFieldType.getLogicalType(PassThroughLogicalType.class));
           case NanosInstant.IDENTIFIER:
             return new TimestampConverter(protoFieldDescriptor);
@@ -157,6 +155,52 @@ public class ProtobufDynamicMessageSchema {
     }
   }
 
+  /**
+   * Gets the proto field's value. If the value is {@code null}, this method returns {@code null}
+   * for a nullable field, or the primitive default value otherwise.
+   */
+  private static @Nullable Object getProtoField(@NonNull Message protoMessage, int number) {
+    Descriptors.FieldDescriptor realFieldDescriptor =
+        protoMessage.getDescriptorForType().findFieldByNumber(number);
+    if (ProtoSchemaTranslator.isNullable(realFieldDescriptor)
+        && !protoMessage.hasField(realFieldDescriptor)) {
+      return null;
+    } else {
+      return protoMessage.getField(realFieldDescriptor);
+    }
+  }
+
+  private static Object unwrapScalarIfNecessary(
+      Descriptors.FieldDescriptor fieldDescriptor, Object protoObject) {
+    if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+      Preconditions.checkArgument(protoObject instanceof Message);
+      Message message = (Message) protoObject;
+      Descriptors.FieldDescriptor wrapperValueFieldDescriptor =
+          message.getDescriptorForType().findFieldByNumber(1);
+      Preconditions.checkArgument(
+          wrapperValueFieldDescriptor.getName().equals("value"),
+          "not a wrapper: %s",
+          wrapperValueFieldDescriptor);
+      return message.getField(wrapperValueFieldDescriptor);
+    } else {
+      Preconditions.checkArgument(!(protoObject instanceof Message));
+      return protoObject;
+    }
+  }
+
+  private static Object wrapScalarIfNecessary(
+      Descriptors.FieldDescriptor fieldDescriptor, Object protoObject) {
+    Preconditions.checkArgument(!(protoObject instanceof Message));
+    if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+      Descriptors.Descriptor messageType = fieldDescriptor.getMessageType();
+      DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(messageType);
+      messageBuilder.setField(messageType.getFields().get(0), protoObject);
+      return messageBuilder.build();
+    } else {
+      return protoObject;
+    }
+  }
+
   public DynamicMessage toProtoMessage(Row row) {
     DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
     for (int i = 0; i < converters.size(); i++) {
@@ -167,16 +211,11 @@ public class ProtobufDynamicMessageSchema {
 
   public Row toRow(Message protoMessage) {
     Row.Builder builder = Row.withSchema(schema);
-    converters.stream()
-        .<@Nullable Object>map(converter -> converter.getFieldFromProtoMessage(protoMessage))
-        .forEach(builder::addValue);
+    for (Converter converter : converters) {
+      Object fieldFromProtoMessage = converter.getFieldFromProtoMessage(protoMessage);
+      builder.addValue(fieldFromProtoMessage);
+    }
     return builder.build();
-  }
-
-  private static @Nullable Object getProtoField(Message protoMessage, int number) {
-    Descriptors.FieldDescriptor realFieldDescriptor = protoMessage.getDescriptorForType()
-        .findFieldByNumber(number);
-    return protoMessage.getField(realFieldDescriptor);
   }
 
   public interface Converter {
@@ -215,10 +254,7 @@ public class ProtobufDynamicMessageSchema {
     @Override
     @Nullable
     public Object getFieldFromProtoMessage(@NonNull Message protoMessage) {
-      if (!ProtoSchemaTranslator.isNullable(fieldDescriptor)) {
-        return convertFromNonNullProtoObject(Objects.requireNonNull(getProtoField(protoMessage, fieldDescriptor.getNumber())));
-      }
-      return null;
+      return convertFromProtoObject(getProtoField(protoMessage, fieldDescriptor.getNumber()));
     }
 
     @Override
@@ -242,23 +278,12 @@ public class ProtobufDynamicMessageSchema {
 
     @Override
     public @NonNull Object convertFromNonNullProtoObject(@NonNull Object protoObject) {
-      if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-        return ((Message) protoObject).getField(fieldDescriptor);
-      } else {
-        return protoObject;
-      }
+      return unwrapScalarIfNecessary(fieldDescriptor, protoObject);
     }
 
     @Override
     public @NonNull Object convertNonNullToProtoObject(@NonNull Object beamObject) {
-      if (fieldDescriptor.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-        return beamObject;
-      } else {
-        Descriptors.Descriptor messageType = fieldDescriptor.getMessageType();
-        DynamicMessage.Builder messageBuilder = DynamicMessage.newBuilder(messageType);
-        messageBuilder.setField(messageType.getFields().get(0), beamObject);
-        return messageBuilder.build();
-      }
+      return wrapScalarIfNecessary(fieldDescriptor, beamObject);
     }
   }
 
@@ -313,16 +338,17 @@ public class ProtobufDynamicMessageSchema {
           message ->
               beamMap.put(
                   Preconditions.checkNotNull(
-                      keyConverter.convertFromProtoObject(getProtoField(message, keyDescriptor.getNumber()))),
+                      keyConverter.convertFromProtoObject(
+                          getProtoField(message, keyDescriptor.getNumber()))),
                   Preconditions.checkNotNull(
-                      valueConverter.convertFromProtoObject(getProtoField(message, valueDescriptor.getNumber())))));
+                      valueConverter.convertFromProtoObject(
+                          getProtoField(message, valueDescriptor.getNumber())))));
       return beamMap;
     }
 
     @Override
-    public @NonNull Map<Object, Object> convertNonNullToProtoObject(@NonNull Object beamObject) {
+    public @NonNull List<Message> convertNonNullToProtoObject(@NonNull Object beamObject) {
       List<Message> protoList = new ArrayList<>();
-      Map<Object, Object> protoMap = new HashMap<>();
       ((Map<Object, Object>) beamObject)
           .forEach(
               (k, v) ->
@@ -330,12 +356,12 @@ public class ProtobufDynamicMessageSchema {
                       DynamicMessage.newBuilder(fieldDescriptor.getMessageType())
                           .setField(
                               keyDescriptor,
-                              Preconditions.checkNotNull(keyConverter.convertFromProtoObject(k)))
+                              Preconditions.checkNotNull(keyConverter.convertToProtoObject(k)))
                           .setField(
                               valueDescriptor,
-                              Preconditions.checkNotNull(valueConverter.convertFromProtoObject(v)))
+                              Preconditions.checkNotNull(valueConverter.convertToProtoObject(v)))
                           .build()));
-      return protoMap;
+      return protoList;
     }
   }
 
@@ -349,6 +375,7 @@ public class ProtobufDynamicMessageSchema {
 
     @Override
     public @NonNull Row convertFromNonNullProtoObject(@NonNull Object protoObject) {
+      Preconditions.checkArgument(protoObject instanceof Message);
       return new ProtobufDynamicMessageSchema(fieldDescriptor.getMessageType(), schema)
           .toRow((Message) protoObject);
     }
@@ -368,19 +395,19 @@ public class ProtobufDynamicMessageSchema {
 
     @Override
     public byte[] convertFromNonNullProtoObject(@NonNull Object protoObject) {
-      return ((ByteString) protoObject).toByteArray();
+      return ((ByteString) unwrapScalarIfNecessary(fieldDescriptor, protoObject)).toByteArray();
     }
 
     @Override
-    public @NonNull ByteString convertNonNullToProtoObject(@NonNull Object beamObject) {
-      return ByteString.copyFrom((byte[]) beamObject);
+    public @NonNull Object convertNonNullToProtoObject(@NonNull Object beamObject) {
+      return wrapScalarIfNecessary(fieldDescriptor, ByteString.copyFrom((byte[]) beamObject));
     }
   }
 
-  static class LogicalTypeConverter extends FieldConverter {
+  static class ProtoSchemaLogicalTypeConverter extends FieldConverter {
     private final Schema.LogicalType<Object, Object> logicalType;
 
-    LogicalTypeConverter(
+    ProtoSchemaLogicalTypeConverter(
         Descriptors.FieldDescriptor fieldDescriptor,
         Schema.LogicalType<Object, Object> logicalType) {
       super(fieldDescriptor);
@@ -390,13 +417,13 @@ public class ProtobufDynamicMessageSchema {
     @Override
     @NonNull
     public Object convertFromNonNullProtoObject(@NonNull Object protoObject) {
-      return logicalType.toBaseType(protoObject);
+      return logicalType.toBaseType(unwrapScalarIfNecessary(fieldDescriptor, protoObject));
     }
 
     @Override
     @NonNull
     public Object convertNonNullToProtoObject(@NonNull Object beamObject) {
-      return logicalType.toInputType(beamObject);
+      return wrapScalarIfNecessary(fieldDescriptor, logicalType.toInputType(beamObject));
     }
   }
 

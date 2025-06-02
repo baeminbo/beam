@@ -37,7 +37,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.apache.beam.sdk.extensions.protobuf.Proto2SchemaMessages.OptionalPrimitive;
 import org.apache.beam.sdk.extensions.protobuf.Proto2SchemaMessages.RequiredPrimitive;
 import org.apache.beam.sdk.extensions.protobuf.Proto3SchemaMessages.MapPrimitive;
@@ -196,7 +195,9 @@ class TestProtoSchemas {
 
   // A sample instance of the  row.
   static final Row PROTO2_REQUIRED_PRIMITIVE_ROW =
-      Row.withSchema(PROTO2_REQUIRED_PRIMITIVE_SCHEMA).addValues(32, true, "horsey", BYTE_ARRAY).build();
+      Row.withSchema(PROTO2_REQUIRED_PRIMITIVE_SCHEMA)
+          .addValues(32, true, "horsey", BYTE_ARRAY)
+          .build();
 
   // A sample instance of the proto.
   static final RequiredPrimitive PROTO2_REQUIRED_PRIMITIVE_PROTO =
@@ -305,7 +306,8 @@ class TestProtoSchemas {
           .build();
 
   // A sample instance of the proto.
-  static final Proto3SchemaMessages.RepeatPrimitive PROTO3_NULL_REPEATED_PROTO = RepeatPrimitive.newBuilder().build();
+  static final Proto3SchemaMessages.RepeatPrimitive PROTO3_NULL_REPEATED_PROTO =
+      RepeatPrimitive.newBuilder().build();
 
   // The schema for the MapPrimitive proto.
   static final Schema PROTO3_MAP_PRIMITIVE_SCHEMA =
@@ -355,7 +357,8 @@ class TestProtoSchemas {
           .build();
 
   // A sample instance of the proto.
-  static final Proto3SchemaMessages.MapPrimitive PROTO3_NULL_MAP_PRIMITIVE_PROTO = MapPrimitive.newBuilder().build();
+  static final Proto3SchemaMessages.MapPrimitive PROTO3_NULL_MAP_PRIMITIVE_PROTO =
+      MapPrimitive.newBuilder().build();
 
   // The schema for the Nested proto.
   static final Schema PROTO3_NESTED_SCHEMA =
@@ -387,7 +390,8 @@ class TestProtoSchemas {
       Nested.newBuilder()
           .setNested(PROTO3_PRIMITIVE_PROTO)
           .addAllNestedList(ImmutableList.of(PROTO3_PRIMITIVE_PROTO, PROTO3_PRIMITIVE_PROTO))
-          .putAllNestedMap(ImmutableMap.of("k1", PROTO3_PRIMITIVE_PROTO, "k2", PROTO3_PRIMITIVE_PROTO))
+          .putAllNestedMap(
+              ImmutableMap.of("k1", PROTO3_PRIMITIVE_PROTO, "k2", PROTO3_PRIMITIVE_PROTO))
           .build();
 
   // The schema for the OneOf proto.
@@ -398,8 +402,10 @@ class TestProtoSchemas {
           withFieldNumber("oneof_string", FieldType.STRING, 4),
           withFieldNumber("oneof_primitive", FieldType.row(PROTO3_PRIMITIVE_SCHEMA), 5));
   private static final Map<String, Integer> PROTO3_ONE_OF_ENUM_MAP =
-      PROTO3_ONEOF_FIELDS.stream().collect(Collectors.toMap(Field::getName, f -> getFieldNumber(f)));
-  static final OneOfType PROTO3_ONE_OF_TYPE = OneOfType.create(PROTO3_ONEOF_FIELDS, PROTO3_ONE_OF_ENUM_MAP);
+      PROTO3_ONEOF_FIELDS.stream()
+          .collect(Collectors.toMap(Field::getName, f -> getFieldNumber(f)));
+  static final OneOfType PROTO3_ONE_OF_TYPE =
+      OneOfType.create(PROTO3_ONEOF_FIELDS, PROTO3_ONE_OF_ENUM_MAP);
   static final Schema PROTO3_ONEOF_SCHEMA =
       Schema.builder()
           .addField(withFieldNumber("place1", FieldType.STRING, 1))
@@ -423,7 +429,8 @@ class TestProtoSchemas {
           .build();
   static final Row PROTO3_ONEOF_ROW_PRIMITIVE =
       Row.withSchema(PROTO3_ONEOF_SCHEMA)
-          .addValues("foo", PROTO3_ONE_OF_TYPE.createValue("oneof_primitive", PROTO3_PRIMITIVE_ROW), 0)
+          .addValues(
+              "foo", PROTO3_ONE_OF_TYPE.createValue("oneof_primitive", PROTO3_PRIMITIVE_ROW), 0)
           .build();
 
   // Sample proto instances for each oneof case.
@@ -434,7 +441,11 @@ class TestProtoSchemas {
   static final OneOf PROTO3_ONEOF_PROTO_STRING =
       OneOf.newBuilder().setOneofString("foo").setPlace1("foo").setPlace2(0).build();
   static final OneOf PROTO3_ONEOF_PROTO_PRIMITIVE =
-      OneOf.newBuilder().setOneofPrimitive(PROTO3_PRIMITIVE_PROTO).setPlace1("foo").setPlace2(0).build();
+      OneOf.newBuilder()
+          .setOneofPrimitive(PROTO3_PRIMITIVE_PROTO)
+          .setPlace1("foo")
+          .setPlace2(0)
+          .build();
 
   // The schema for the OuterOneOf proto.
   private static final List<Field> PROTO3_OUTER_ONEOF_FIELDS =
@@ -442,12 +453,14 @@ class TestProtoSchemas {
           withFieldNumber("oneof_oneof", FieldType.row(PROTO3_ONEOF_SCHEMA), 1),
           withFieldNumber("oneof_int32", FieldType.INT32, 2));
   private static final Map<String, Integer> PROTO3_OUTER_ONE_OF_ENUM_MAP =
-      PROTO3_OUTER_ONEOF_FIELDS.stream().collect(Collectors.toMap(Field::getName, f -> getFieldNumber(f)));
+      PROTO3_OUTER_ONEOF_FIELDS.stream()
+          .collect(Collectors.toMap(Field::getName, f -> getFieldNumber(f)));
   static final OneOfType PROTO3_OUTER_ONEOF_TYPE =
       OneOfType.create(PROTO3_OUTER_ONEOF_FIELDS, PROTO3_OUTER_ONE_OF_ENUM_MAP);
   static final Schema PROTO3_OUTER_ONEOF_SCHEMA =
       Schema.builder()
-          .addField("outer_oneof", FieldType.logicalType(PROTO3_OUTER_ONEOF_TYPE).withNullable(true))
+          .addField(
+              "outer_oneof", FieldType.logicalType(PROTO3_OUTER_ONEOF_TYPE).withNullable(true))
           .setOptions(withTypeName("proto3_schema_messages.OuterOneOf"))
           .build();
 
@@ -479,7 +492,8 @@ class TestProtoSchemas {
       Schema.builder()
           .addField(withFieldNumber("place1", FieldType.STRING, 6))
           .addField(
-              "oneof_reversed", FieldType.logicalType(PROTO3_REVERSED_ONE_OF_TYPE).withNullable(true))
+              "oneof_reversed",
+              FieldType.logicalType(PROTO3_REVERSED_ONE_OF_TYPE).withNullable(true))
           .addField(withFieldNumber("place2", FieldType.INT32, 1))
           .setOptions(withTypeName("proto3_schema_messages.ReversedOneOf"))
           .build();
@@ -499,7 +513,10 @@ class TestProtoSchemas {
           .build();
   static final Row PROTO3_REVERSED_ONEOF_ROW_PRIMITIVE =
       Row.withSchema(PROTO3_REVERSED_ONEOF_SCHEMA)
-          .addValues("foo", PROTO3_REVERSED_ONE_OF_TYPE.createValue("oneof_primitive", PROTO3_PRIMITIVE_ROW), 0)
+          .addValues(
+              "foo",
+              PROTO3_REVERSED_ONE_OF_TYPE.createValue("oneof_primitive", PROTO3_PRIMITIVE_ROW),
+              0)
           .build();
 
   // Sample proto instances for each ReversedOneOf case.
@@ -539,7 +556,8 @@ class TestProtoSchemas {
           .collect(Collectors.toMap(Field::getName, f -> getFieldNumber(f)));
 
   static final OneOfType PROTO3_NONCONTIGUOUS_ONE_ONE_OF_TYPE =
-      OneOfType.create(PROTO3_NONCONTIGUOUS_ONE_ONEOF_FIELDS, PROTO3_NONCONTIGUOUS_ONE_ONE_OF_ENUM_MAP);
+      OneOfType.create(
+          PROTO3_NONCONTIGUOUS_ONE_ONEOF_FIELDS, PROTO3_NONCONTIGUOUS_ONE_ONE_OF_ENUM_MAP);
 
   static final OneOfType PROTO3_NONCONTIGUOUS_TWO_ONE_OF_TYPE =
       OneOfType.create(
@@ -682,7 +700,9 @@ class TestProtoSchemas {
 
   // A sample instance of the proto.
   static final Proto2SchemaMessages.OptionalNested OPTIONAL_NESTED =
-      Proto2SchemaMessages.OptionalNested.newBuilder().setNested(PROTO2_OPTIONAL_PRIMITIVE_PROTO).build();
+      Proto2SchemaMessages.OptionalNested.newBuilder()
+          .setNested(PROTO2_OPTIONAL_PRIMITIVE_PROTO)
+          .build();
 
   // The schema for the Required Nested proto.
   static final Schema PROTO2_REQUIRED_NESTED_SCHEMA =
@@ -695,7 +715,9 @@ class TestProtoSchemas {
 
   // A sample instance of the proto.
   static final Proto2SchemaMessages.RequiredNested PROTO2_REQUIRED_NESTED =
-      Proto2SchemaMessages.RequiredNested.newBuilder().setNested(PROTO2_REQUIRED_PRIMITIVE_PROTO).build();
+      Proto2SchemaMessages.RequiredNested.newBuilder()
+          .setNested(PROTO2_REQUIRED_PRIMITIVE_PROTO)
+          .build();
 
   // The schema for the Empty proto.
   static final Schema PROTO3_EMPTY_SCHEMA =

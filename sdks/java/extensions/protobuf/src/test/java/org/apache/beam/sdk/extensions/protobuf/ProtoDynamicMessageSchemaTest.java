@@ -25,6 +25,7 @@ import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NE
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NESTED_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_PROTO;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_MAP_PRIMITIVE_PROTO;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_MAP_PRIMITIVE_ROW;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NULL_REPEATED_PROTO;
@@ -40,12 +41,10 @@ import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ON
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_ONEOF_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_PROTO;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_ROW;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_PRIMITIVE_PROTO;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_PRIMITIVE_ROW;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_NONCONTIGUOUS_ONEOF_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_OUTER_ONEOF_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_PRIMITIVE_SCHEMA;
-import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REPEATED_PROTO;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REPEATED_ROW;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REPEATED_SCHEMA;
@@ -57,6 +56,7 @@ import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_RE
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_INT32;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_PRIMITIVE;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_ROW_STRING;
+import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_REVERSED_ONEOF_SCHEMA;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_PROTO;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_ROW;
 import static org.apache.beam.sdk.extensions.protobuf.TestProtoSchemas.PROTO3_WKT_MESSAGE_SCHEMA;
@@ -173,7 +173,8 @@ public class ProtoDynamicMessageSchemaTest {
     ProtoDynamicMessageSchema schemaProvider =
         schemaFromDescriptor(RepeatPrimitive.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
-    assertEquals(PROTO3_NULL_REPEATED_PROTO.toString(), fromRow.apply(PROTO3_NULL_REPEATED_ROW).toString());
+    assertEquals(
+        PROTO3_NULL_REPEATED_PROTO.toString(), fromRow.apply(PROTO3_NULL_REPEATED_ROW).toString());
   }
 
   // Test map type
@@ -196,7 +197,8 @@ public class ProtoDynamicMessageSchemaTest {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(MapPrimitive.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
     MapPrimitive proto =
-        parseFrom(fromRow.apply(PROTO3_MAP_PRIMITIVE_ROW).toString(), MapPrimitive.newBuilder()).build();
+        parseFrom(fromRow.apply(PROTO3_MAP_PRIMITIVE_ROW).toString(), MapPrimitive.newBuilder())
+            .build();
     assertEquals(PROTO3_MAP_PRIMITIVE_PROTO, proto);
   }
 
@@ -204,7 +206,8 @@ public class ProtoDynamicMessageSchemaTest {
   public void testNullMapProtoToRow() throws InvalidProtocolBufferException {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(MapPrimitive.getDescriptor());
     SerializableFunction<DynamicMessage, Row> toRow = schemaProvider.getToRowFunction();
-    assertEquals(PROTO3_NULL_MAP_PRIMITIVE_ROW, toRow.apply(toDynamic(PROTO3_NULL_MAP_PRIMITIVE_PROTO)));
+    assertEquals(
+        PROTO3_NULL_MAP_PRIMITIVE_ROW, toRow.apply(toDynamic(PROTO3_NULL_MAP_PRIMITIVE_PROTO)));
   }
 
   @Test
@@ -212,7 +215,8 @@ public class ProtoDynamicMessageSchemaTest {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(MapPrimitive.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
     MapPrimitive proto =
-        parseFrom(fromRow.apply(PROTO3_NULL_MAP_PRIMITIVE_ROW).toString(), MapPrimitive.newBuilder())
+        parseFrom(
+                fromRow.apply(PROTO3_NULL_MAP_PRIMITIVE_ROW).toString(), MapPrimitive.newBuilder())
             .build();
     assertEquals(PROTO3_NULL_MAP_PRIMITIVE_PROTO, proto);
   }
@@ -235,7 +239,8 @@ public class ProtoDynamicMessageSchemaTest {
   public void testNestedRowToProto() throws InvalidProtocolBufferException {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(Nested.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
-    Nested proto = parseFrom(fromRow.apply(PROTO3_NESTED_ROW).toString(), Nested.newBuilder()).build();
+    Nested proto =
+        parseFrom(fromRow.apply(PROTO3_NESTED_ROW).toString(), Nested.newBuilder()).build();
     assertEquals(PROTO3_NESTED_PROTO, proto);
   }
 
@@ -252,22 +257,33 @@ public class ProtoDynamicMessageSchemaTest {
     SerializableFunction<DynamicMessage, Row> toRow = schemaProvider.getToRowFunction();
     // equality doesn't work between dynamic messages and other,
     // so we compare string representation
-    assertEquals(PROTO3_ONEOF_ROW_INT32.toString(), toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_INT32)).toString());
-    assertEquals(PROTO3_ONEOF_ROW_BOOL.toString(), toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_BOOL)).toString());
     assertEquals(
-        PROTO3_ONEOF_ROW_STRING.toString(), toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_STRING)).toString());
+        PROTO3_ONEOF_ROW_INT32.toString(),
+        toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_INT32)).toString());
     assertEquals(
-        PROTO3_ONEOF_ROW_PRIMITIVE.toString(), toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_PRIMITIVE)).toString());
+        PROTO3_ONEOF_ROW_BOOL.toString(),
+        toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_BOOL)).toString());
+    assertEquals(
+        PROTO3_ONEOF_ROW_STRING.toString(),
+        toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_STRING)).toString());
+    assertEquals(
+        PROTO3_ONEOF_ROW_PRIMITIVE.toString(),
+        toRow.apply(toDynamic(PROTO3_ONEOF_PROTO_PRIMITIVE)).toString());
   }
 
   @Test
   public void testOneOfRowToProto() {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(OneOf.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
-    assertEquals(PROTO3_ONEOF_PROTO_INT32.toString(), fromRow.apply(PROTO3_ONEOF_ROW_INT32).toString());
-    assertEquals(PROTO3_ONEOF_PROTO_BOOL.toString(), fromRow.apply(PROTO3_ONEOF_ROW_BOOL).toString());
-    assertEquals(PROTO3_ONEOF_PROTO_STRING.toString(), fromRow.apply(PROTO3_ONEOF_ROW_STRING).toString());
-    assertEquals(PROTO3_ONEOF_PROTO_PRIMITIVE.toString(), fromRow.apply(PROTO3_ONEOF_ROW_PRIMITIVE).toString());
+    assertEquals(
+        PROTO3_ONEOF_PROTO_INT32.toString(), fromRow.apply(PROTO3_ONEOF_ROW_INT32).toString());
+    assertEquals(
+        PROTO3_ONEOF_PROTO_BOOL.toString(), fromRow.apply(PROTO3_ONEOF_ROW_BOOL).toString());
+    assertEquals(
+        PROTO3_ONEOF_PROTO_STRING.toString(), fromRow.apply(PROTO3_ONEOF_ROW_STRING).toString());
+    assertEquals(
+        PROTO3_ONEOF_PROTO_PRIMITIVE.toString(),
+        fromRow.apply(PROTO3_ONEOF_ROW_PRIMITIVE).toString());
   }
 
   @Test
@@ -302,9 +318,11 @@ public class ProtoDynamicMessageSchemaTest {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(ReversedOneOf.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
     assertEquals(
-        PROTO3_REVERSED_ONEOF_PROTO_INT32.toString(), fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_INT32).toString());
+        PROTO3_REVERSED_ONEOF_PROTO_INT32.toString(),
+        fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_INT32).toString());
     assertEquals(
-        PROTO3_REVERSED_ONEOF_PROTO_BOOL.toString(), fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_BOOL).toString());
+        PROTO3_REVERSED_ONEOF_PROTO_BOOL.toString(),
+        fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_BOOL).toString());
     assertEquals(
         PROTO3_REVERSED_ONEOF_PROTO_STRING.toString(),
         fromRow.apply(PROTO3_REVERSED_ONEOF_ROW_STRING).toString());
@@ -339,7 +357,8 @@ public class ProtoDynamicMessageSchemaTest {
         schemaFromDescriptor(NonContiguousOneOf.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
     assertEquals(
-        PROTO3_NONCONTIGUOUS_ONEOF_PROTO.toString(), fromRow.apply(PROTO3_NONCONTIGUOUS_ONEOF_ROW).toString());
+        PROTO3_NONCONTIGUOUS_ONEOF_PROTO.toString(),
+        fromRow.apply(PROTO3_NONCONTIGUOUS_ONEOF_ROW).toString());
   }
 
   @Test
@@ -355,14 +374,17 @@ public class ProtoDynamicMessageSchemaTest {
     SerializableFunction<DynamicMessage, Row> toRow = schemaProvider.getToRowFunction();
     // equality doesn't work between dynamic messages and other,
     // so we compare string representation
-    assertEquals(PROTO3_OUTER_ONEOF_ROW.toString(), toRow.apply(toDynamic(PROTO3_OUTER_ONEOF_PROTO)).toString());
+    assertEquals(
+        PROTO3_OUTER_ONEOF_ROW.toString(),
+        toRow.apply(toDynamic(PROTO3_OUTER_ONEOF_PROTO)).toString());
   }
 
   @Test
   public void testOuterOneOfRowToProto() {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(OuterOneOf.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
-    assertEquals(PROTO3_OUTER_ONEOF_PROTO.toString(), fromRow.apply(PROTO3_OUTER_ONEOF_ROW).toString());
+    assertEquals(
+        PROTO3_OUTER_ONEOF_PROTO.toString(), fromRow.apply(PROTO3_OUTER_ONEOF_ROW).toString());
   }
 
   private static final EnumerationType ENUM_TYPE =
@@ -418,6 +440,7 @@ public class ProtoDynamicMessageSchemaTest {
   public void testWktRowToProto() {
     ProtoDynamicMessageSchema schemaProvider = schemaFromDescriptor(WktMessage.getDescriptor());
     SerializableFunction<Row, DynamicMessage> fromRow = schemaProvider.getFromRowFunction();
-    assertEquals(PROTO3_WKT_MESSAGE_PROTO.toString(), fromRow.apply(PROTO3_WKT_MESSAGE_ROW).toString());
+    assertEquals(
+        PROTO3_WKT_MESSAGE_PROTO.toString(), fromRow.apply(PROTO3_WKT_MESSAGE_ROW).toString());
   }
 }
