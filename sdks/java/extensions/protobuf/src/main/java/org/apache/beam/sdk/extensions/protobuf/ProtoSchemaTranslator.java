@@ -158,6 +158,17 @@ class ProtoSchemaTranslator {
     return field.getOptions().getValue(SCHEMA_OPTION_META_NUMBER);
   }
 
+  /**
+   * Returns {@code true} if the proto field converts to a nullable Beam field type, {@code false}
+   * otherwise.
+   */
+  static boolean isNullable(FieldDescriptor fieldDescriptor) {
+    // Set nullable for fields with presence (proto3 optional, message, group, extension,
+    // oneof-contained or explicit presence -- proto2 optional or required), but not
+    // "required" (to exclude proto2 required).
+    return fieldDescriptor.hasPresence() && !fieldDescriptor.isRequired();
+  }
+
   /** Return a Beam schema representing a proto class. */
   static Schema getSchema(Class<? extends Message> clazz) {
     return getSchema(ProtobufUtil.getDescriptorForClass(clazz));

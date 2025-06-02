@@ -207,7 +207,7 @@ public class ProtobufDynamicMessageSchema {
     @Override
     @Nullable
     public Object getFieldFromProtoMessage(@NonNull Message protoMessage) {
-      return !fieldDescriptor.hasPresence() || protoMessage.hasField(fieldDescriptor)
+      return !ProtoSchemaTranslator.isNullable(fieldDescriptor)
           ? convertFromNonNullProtoObject(protoMessage.getField(fieldDescriptor))
           : null;
     }
