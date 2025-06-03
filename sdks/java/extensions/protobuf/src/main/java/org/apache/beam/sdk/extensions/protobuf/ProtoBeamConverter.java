@@ -49,7 +49,7 @@ public class ProtoBeamConverter {
 
   public static SerializableFunction<@NonNull Row, @NonNull Message> toProto(
       Descriptors.Descriptor descriptor) {
-    Map<String, ToProto<?>> toProtos = new LinkedHashMap<>();
+    Map<String, ToProtoSetter<?>> toProtos = new LinkedHashMap<>();
     for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
       if (fieldDescriptor.getRealContainingOneof() != null) {
         Descriptors.OneofDescriptor realContainingOneof = fieldDescriptor.getRealContainingOneof();
@@ -69,11 +69,11 @@ public class ProtoBeamConverter {
     }
     return row -> {
       DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor);
-      for (Map.Entry<String, ToProto<?>> entry : toProtos.entrySet()) {
+      for (Map.Entry<String, ToProtoSetter<?>> entry : toProtos.entrySet()) {
         String fieldName = entry.getKey();
         @SuppressWarnings("unchecked")
-        ToProto<Object> converter = (ToProto<Object>) entry.getValue();
-        converter.setProtoField(message, row.getValue(fieldName));
+        ToProtoSetter<Object> converter = (ToProtoSetter<Object>) entry.getValue();
+        converter.setToProto(message, row.getValue(fieldName));
       }
       return message.build();
     };
@@ -141,20 +141,20 @@ public class ProtoBeamConverter {
   }
 
   public static SerializableFunction<@NonNull Message, @NonNull Row> fromProto(Schema schema) {
-    List<FromProto<?>> toBeams = new ArrayList<>();
+    List<FromProtoGetter<?>> toBeams = new ArrayList<>();
     for (Schema.Field field : schema.getFields()) {
       Schema.FieldType fieldType = field.getType();
       if (fieldType.isLogicalType(OneOfType.IDENTIFIER)) {
-        toBeams.add(new FromProtoOneOf(fieldType));
+        toBeams.add(new FromProtoOneOfGetter(fieldType));
       } else {
-        toBeams.add(new FromProtoField<>(field));
+        toBeams.add(new FromProtoFieldGetter<>(field));
       }
     }
 
     return message -> {
       Row.Builder rowBuilder = Row.withSchema(schema);
-      for (FromProto<?> toBeam : toBeams) {
-        rowBuilder.addValue(toBeam.getBeamField(message));
+      for (FromProtoGetter<?> toBeam : toBeams) {
+        rowBuilder.addValue(toBeam.getFromProto(message));
       }
       return rowBuilder.build();
     };
@@ -217,28 +217,29 @@ public class ProtoBeamConverter {
     }
   }
 
-  interface ToProto<B> {
-    void setProtoField(Message.Builder message, B beamFieldValue);
+  interface ToProtoSetter<B> {
+    void setToProto(Message.Builder message, B beamFieldValue);
   }
 
-  interface FromProto<B> {
+
+  interface FromProtoGetter<B> {
     @Nullable
-    B getBeamField(Message message);
+    B getFromProto(Message message);
   }
 
-  static class FromProtoField<P, B> implements FromProto<B> {
+  static class FromProtoFieldGetter<P, B> implements FromProtoGetter<B> {
     private final Schema.Field field;
     private final BeamConverter<P, B> converter;
 
     @SuppressWarnings("unchecked")
-    FromProtoField(Schema.Field field) {
+    FromProtoFieldGetter(Schema.Field field) {
       this.field = field;
       converter = (BeamConverter<P, B>) createBeamConverter(field.getType());
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public @Nullable B getBeamField(Message message) {
+    public @Nullable B getFromProto(Message message) {
       Descriptors.Descriptor descriptor = message.getDescriptorForType();
       Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(field.getName());
       @Nullable Object protoValue = message.getField(fieldDescriptor);
@@ -246,7 +247,7 @@ public class ProtoBeamConverter {
     }
   }
 
-  abstract static class ToProtoField<B> implements ToProto<B> {
+  abstract static class ToProtoField<B> implements ToProtoSetter<B> {
     protected final Descriptors.FieldDescriptor fieldDescriptor;
 
     ToProtoField(Descriptors.FieldDescriptor fieldDescriptor) {
@@ -262,7 +263,7 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    public void setProtoField(Message.Builder message, B beamFieldValue) {
+    public void setToProto(Message.Builder message, B beamFieldValue) {
       Object protoValue = convert(beamFieldValue);
       if (protoValue != null) {
         Descriptors.FieldDescriptor messageFieldDescriptor =
@@ -303,7 +304,7 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    public void setProtoField(Message.Builder message, B beamFieldValue) {
+    public void setToProto(Message.Builder message, B beamFieldValue) {
       @Nullable P protoValue = convert(beamFieldValue);
       if (protoValue != null) {
         Descriptors.FieldDescriptor messageFieldDescriptor =
@@ -477,7 +478,7 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoOneOf implements ToProto<OneOfType.Value> {
+  static class ToProtoOneOf implements ToProtoSetter<OneOfType.Value> {
     private final Map<Integer, ToProtoField<Object>> converters;
 
     ToProtoOneOf(Descriptors.OneofDescriptor oneofDescriptor) {
@@ -497,11 +498,11 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    public void setProtoField(Message.Builder message, OneOfType.Value oneOfValue) {
+    public void setToProto(Message.Builder message, OneOfType.Value oneOfValue) {
       if (oneOfValue != null) {
         int number = oneOfValue.getCaseType().getValue();
         ToProtoField<Object> converter = Preconditions.checkNotNull(converters.get(number));
-        converter.setProtoField(message, oneOfValue.getValue());
+        converter.setToProto(message, oneOfValue.getValue());
       }
     }
   }
@@ -809,11 +810,11 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class FromProtoOneOf implements FromProto<OneOfType.Value> {
+  static class FromProtoOneOfGetter implements FromProtoGetter<OneOfType.Value> {
     private final OneOfType oneOfType;
     private final Map<String, BeamConverter<Object, ?>> converter;
 
-    FromProtoOneOf(Schema.FieldType fieldType) {
+    FromProtoOneOfGetter(Schema.FieldType fieldType) {
       this.oneOfType = Preconditions.checkNotNull(fieldType.getLogicalType(OneOfType.class));
       this.converter = createConverters(oneOfType.getOneOfSchema());
     }
@@ -829,7 +830,7 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    public OneOfType.@Nullable Value getBeamField(Message message) {
+    public OneOfType.@Nullable Value getFromProto(Message message) {
       Descriptors.Descriptor descriptor = message.getDescriptorForType();
       for (Map.Entry<String, BeamConverter<Object, ?>> entry : converter.entrySet()) {
         String fieldName = entry.getKey();
