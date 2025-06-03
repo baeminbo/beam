@@ -17,6 +17,9 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.Objects;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.SerializableFunction;
@@ -188,9 +191,9 @@ public class ProtoByteUtilsTest {
     Assert.assertNotNull(
         ProtoByteUtils.getRowToProtoBytesFromSchema(PROTO_STRING_SCHEMA, "MyMessage").apply(row));
   }
-
+  // spotless:off
   @Test
-  public void testRowToProtoSchemaWithPackageFunction() {
+  public void testRowToProtoSchemaWithPackageFunction() throws InvalidProtocolBufferException {
     Row row =
         Row.withSchema(SCHEMA)
             .withFieldValue("id", 1234)
@@ -203,17 +206,101 @@ public class ProtoByteUtilsTest {
             .build();
 
     byte[] byteArray = {
-      8, -46, 9, 18, 3, 68, 111, 101, 34, 35, 10, 7, 115, 101, 97, 116, 116, 108, 101, 18, 11, 102,
-      97, 107, 101, 32, 115, 116, 114, 101, 101, 116, 26, 2, 119, 97, 34, 7, 84, 79, 45, 49, 50, 51,
+      // id = 1: 1234
+      //   Tag: 1, Wire VARINT => 1 * 8 + 0 => [8]
+      //   1234 => 1001 1010010 => 00001001 11010010 => 11010010 00001001 => 210 9 => [-46 9]
+      8,
+      -46,
+      9,
+      // name = 2: Doe
+      //   Tag: 2, Wire LEN => 2 * 8 + 2 => [18]
+      //   Length => [3]
+      //   Doe => [68, 111, 101]
+      18,
+      3,
+      68,
+      111,
+      101,
+      // active = 3: false
+      //   No serialization due to default value
+      // Address address = 4:
+      //   Tag 4, Wire LEN => 4 * 8 + 2 => [34]
+      //   Length: (1 + 1 + 11) + (1 + 1 + 7) + (1 + 1 + 2) + (1 + 1 + 7) = 35
+      34,
+      35,
+      //   street = 1: fake street
+      //     Tag 1, Wire LEN => 1 * 8 + 2 => [10]
+      //     Length => [11]
+      //     fake street => [102, 97, 107, 101, 32, 115, 116, 114, 101, 101, 116]
+      10,
+      11,
+      102,
+      97,
+      107,
+      101,
+      32,
+      115,
+      116,
+      114,
+      101,
+      101,
+      116,
+      //   city = 2: seattle
+      //     Tag 2, Wire LEN => 2 * 8 + 2 => [18]
+      //     Length => [7]
+      //     seattle => [115, 101, 97, 116, 116, 108, 101]
+      18,
+      7,
+      115,
+      101,
+      97,
+      116,
+      116,
+      108,
+      101,
+      //   state = 3: wa
+      //     Tag 3, Wire LEN => 3 * 8 + 2 => [26]
+      //     Length => [2]
+      //     wa => [119, 97]
+      26,
+      2,
+      119,
+      97,
+      //   zip_code = 4: TO-1234
+      //     Tag 4, Wire LEN => 4 * 8 + 2 => [34]
+      //     Length => [7]
+      //     TO-1234 =>  [84, 79, 45, 49, 50, 51, 52]
+      34,
+      7,
+      84,
+      79,
+      45,
+      49,
+      50,
+      51,
       52
     };
 
+    // NOTE: PROTO_STRING_PACKAGE_SCHEMA has different orders for address.street and address.city
+    // from SCHEMA.
+    // The street and city is tag:1 and tag:2 in the protobuf schema, but it's the second and the
+    // first in Beam SCHEMA,
+    // respectively.
     byte[] resultBytes =
         ProtoByteUtils.getRowToProtoBytesFromSchema(
                 PROTO_STRING_PACKAGE_SCHEMA, "com.test.proto.MyMessage")
             .apply(row);
 
-    Assert.assertNotNull(resultBytes);
-    Assert.assertArrayEquals(byteArray, resultBytes);
+    Descriptors.Descriptor descriptor =
+        ProtoByteUtils.getDescriptorFromProtoSchema(
+            PROTO_STRING_PACKAGE_SCHEMA, "com.test.proto.MyMessage");
+
+    DynamicMessage expectedMessage =
+        DynamicMessage.newBuilder(descriptor).mergeFrom(byteArray).build();
+    DynamicMessage resultMessage =
+        DynamicMessage.newBuilder(descriptor).mergeFrom(resultBytes).build();
+
+    Assert.assertEquals(expectedMessage, resultMessage);
   }
+  // spotless:on
 }

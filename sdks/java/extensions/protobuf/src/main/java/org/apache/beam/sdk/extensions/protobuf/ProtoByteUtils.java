@@ -103,7 +103,7 @@ public class ProtoByteUtils {
    * @return The Descriptor for the specified message name.
    * @throws RuntimeException If there is an error during parsing or descriptor validation.
    */
-  private static Descriptors.Descriptor getDescriptorFromProtoSchema(
+  static Descriptors.Descriptor getDescriptorFromProtoSchema(
       final String schemaString, final String messageName) {
     ProtoFileElement result = ProtoParser.Companion.parse(LOCATION, schemaString);
     try {
