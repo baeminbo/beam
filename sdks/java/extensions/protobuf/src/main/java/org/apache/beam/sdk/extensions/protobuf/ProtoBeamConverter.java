@@ -54,17 +54,11 @@ public class ProtoBeamConverter {
       if (fieldDescriptor.getRealContainingOneof() != null) {
         Descriptors.OneofDescriptor realContainingOneof = fieldDescriptor.getRealContainingOneof();
         if (realContainingOneof.getField(0) == fieldDescriptor) {
-          toProtos.put(realContainingOneof.getName(), new ToProtoOneOf(realContainingOneof));
+          toProtos.put(realContainingOneof.getName(), new ToProtoOneOfSetter(realContainingOneof));
         }
         // continue
-      } else if (fieldDescriptor.isRepeated()) {
-        if (fieldDescriptor.isMapField()) {
-          toProtos.put(fieldDescriptor.getName(), new ToProtoMapToRepeated<>(fieldDescriptor));
-        } else {
-          toProtos.put(fieldDescriptor.getName(), new ToProtoIterableToRepeated<>(fieldDescriptor));
-        }
       } else {
-        toProtos.put(fieldDescriptor.getName(), createToProtoSingular(fieldDescriptor));
+        toProtos.put(fieldDescriptor.getName(), createToProtoFieldSetter(fieldDescriptor));
       }
     }
     return row -> {
@@ -88,51 +82,65 @@ public class ProtoBeamConverter {
     return messageFieldDescriptor;
   }
 
-  static ToProtoField<?> createToProtoSingular(Descriptors.FieldDescriptor fieldDescriptor) {
+  static ToProtoFieldSetter<?> createToProtoFieldSetter(
+      Descriptors.FieldDescriptor fieldDescriptor) {
+    if (fieldDescriptor.isRepeated()) {
+      if (fieldDescriptor.isMapField()) {
+        return new ToProtoMapSetter<>(fieldDescriptor);
+      } else {
+        return new ToProtoListSetter<>(fieldDescriptor);
+      }
+    } else {
+      return createToProtoSingularSetter(fieldDescriptor);
+    }
+  }
+
+  static ToProtoFieldSetter<?> createToProtoSingularSetter(
+      Descriptors.FieldDescriptor fieldDescriptor) {
     switch (fieldDescriptor.getJavaType()) {
       case INT:
-        return new ToProtoPassThrough<>(fieldDescriptor, 0);
+        return new ToProtoPassThroughSetter<>(fieldDescriptor, 0);
       case LONG:
-        return new ToProtoPassThrough<>(fieldDescriptor, 0L);
+        return new ToProtoPassThroughSetter<>(fieldDescriptor, 0L);
       case FLOAT:
-        return new ToProtoPassThrough<>(fieldDescriptor, 0f);
+        return new ToProtoPassThroughSetter<>(fieldDescriptor, 0f);
       case DOUBLE:
-        return new ToProtoPassThrough<>(fieldDescriptor, 0.0);
+        return new ToProtoPassThroughSetter<>(fieldDescriptor, 0.0);
       case BOOLEAN:
-        return new ToProtoPassThrough<>(fieldDescriptor, false);
+        return new ToProtoPassThroughSetter<>(fieldDescriptor, false);
       case STRING:
-        return new ToProtoPassThrough<>(fieldDescriptor, "");
+        return new ToProtoPassThroughSetter<>(fieldDescriptor, "");
       case BYTE_STRING:
-        return new ToProtoByteString(fieldDescriptor);
+        return new ToProtoByteStringSetter(fieldDescriptor);
       case ENUM:
-        return new ToProtoEnum(fieldDescriptor);
+        return new ToProtoEnumSetter(fieldDescriptor);
       case MESSAGE:
         String fullName = fieldDescriptor.getMessageType().getFullName();
         switch (fullName) {
           case "google.protobuf.Int32Value":
           case "google.protobuf.UInt32Value":
-            return new ToProtoPassThrough<>(fieldDescriptor, 0);
+            return new ToProtoPassThroughSetter<>(fieldDescriptor, 0);
           case "google.protobuf.Int64Value":
           case "google.protobuf.UInt64Value":
-            return new ToProtoPassThrough<>(fieldDescriptor, 0L);
+            return new ToProtoPassThroughSetter<>(fieldDescriptor, 0L);
           case "google.protobuf.FloatValue":
-            return new ToProtoPassThrough<>(fieldDescriptor, 0f);
+            return new ToProtoPassThroughSetter<>(fieldDescriptor, 0f);
           case "google.protobuf.DoubleValue":
-            return new ToProtoPassThrough<>(fieldDescriptor, 0.0);
+            return new ToProtoPassThroughSetter<>(fieldDescriptor, 0.0);
           case "google.protobuf.StringValue":
-            return new ToProtoPassThrough<>(fieldDescriptor, "");
+            return new ToProtoPassThroughSetter<>(fieldDescriptor, "");
           case "google.protobuf.BoolValue":
-            return new ToProtoPassThrough<>(fieldDescriptor, false);
+            return new ToProtoPassThroughSetter<>(fieldDescriptor, false);
           case "google.protobuf.BytesValue":
-            return new ToProtoByteString(fieldDescriptor);
+            return new ToProtoByteStringSetter(fieldDescriptor);
           case "google.protobuf.Timestamp":
-            return new ToProtoTimestamp(fieldDescriptor);
+            return new ToProtoTimestampSetter(fieldDescriptor);
           case "google.protobuf.Duration":
-            return new ToProtoDuration(fieldDescriptor);
+            return new ToProtoDurationSetter(fieldDescriptor);
           case "google.protobuf.Any":
             throw new UnsupportedOperationException("google.protobuf.Any is not supported");
           default:
-            return new ToProtoMessage(fieldDescriptor);
+            return new ToProtoMessageSetter(fieldDescriptor);
         }
       default:
         throw new UnsupportedOperationException(
@@ -221,7 +229,6 @@ public class ProtoBeamConverter {
     void setToProto(Message.Builder message, B beamFieldValue);
   }
 
-
   interface FromProtoGetter<B> {
     @Nullable
     B getFromProto(Message message);
@@ -247,18 +254,18 @@ public class ProtoBeamConverter {
     }
   }
 
-  abstract static class ToProtoField<B> implements ToProtoSetter<B> {
+  abstract static class ToProtoFieldSetter<B> implements ToProtoSetter<B> {
     protected final Descriptors.FieldDescriptor fieldDescriptor;
 
-    ToProtoField(Descriptors.FieldDescriptor fieldDescriptor) {
+    ToProtoFieldSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       this.fieldDescriptor = fieldDescriptor;
     }
 
     public abstract @Nullable Object convert(@Nullable B beamValue);
   }
 
-  abstract static class ToProtoWrappable<B, P> extends ToProtoField<B> {
-    ToProtoWrappable(Descriptors.FieldDescriptor fieldDescriptor) {
+  abstract static class ToProtoWrappableSetter<B, P> extends ToProtoFieldSetter<B> {
+    ToProtoWrappableSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
@@ -298,8 +305,8 @@ public class ProtoBeamConverter {
     abstract @NonNull P convertNonNullUnwrapped(@NonNull B beamValue);
   }
 
-  abstract static class ToProtoUnwrappable<B, P> extends ToProtoField<B> {
-    ToProtoUnwrappable(Descriptors.FieldDescriptor fieldDescriptor) {
+  abstract static class ToProtoUnwrappableSetter<B, P> extends ToProtoFieldSetter<B> {
+    ToProtoUnwrappableSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
@@ -330,10 +337,10 @@ public class ProtoBeamConverter {
     abstract @Nullable P convertNonNull(@NonNull B beamValue);
   }
 
-  static class ToProtoPassThrough<T> extends ToProtoWrappable<T, T> {
+  static class ToProtoPassThroughSetter<T> extends ToProtoWrappableSetter<T, T> {
     private final @NonNull T defaultValue;
 
-    public ToProtoPassThrough(
+    public ToProtoPassThroughSetter(
         Descriptors.FieldDescriptor fieldDescriptor, @NonNull T defaultValue) {
       super(fieldDescriptor);
       this.defaultValue = defaultValue;
@@ -352,8 +359,8 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoByteString extends ToProtoWrappable<byte[], ByteString> {
-    ToProtoByteString(Descriptors.FieldDescriptor fieldDescriptor) {
+  static class ToProtoByteStringSetter extends ToProtoWrappableSetter<byte[], ByteString> {
+    ToProtoByteStringSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
@@ -370,14 +377,14 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoIterableToRepeated<B>
-      extends ToProtoUnwrappable<Iterable<@NonNull B>, List<@NonNull Object>> {
-    private final ToProtoField<B> elementToProto;
+  static class ToProtoListSetter<B>
+      extends ToProtoUnwrappableSetter<Iterable<@NonNull B>, List<@NonNull Object>> {
+    private final ToProtoFieldSetter<B> elementToProto;
 
     @SuppressWarnings("unchecked")
-    ToProtoIterableToRepeated(Descriptors.FieldDescriptor fieldDescriptor) {
+    ToProtoListSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
-      elementToProto = (ToProtoField<B>) createToProtoSingular(fieldDescriptor);
+      elementToProto = (ToProtoFieldSetter<B>) createToProtoSingularSetter(fieldDescriptor);
     }
 
     @Override
@@ -398,22 +405,22 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoMapToRepeated<BK, BV>
-      extends ToProtoUnwrappable<Map<@Nullable BK, @Nullable BV>, List<@NonNull Message>> {
+  static class ToProtoMapSetter<BK, BV>
+      extends ToProtoUnwrappableSetter<Map<@Nullable BK, @Nullable BV>, List<@NonNull Message>> {
     private final Descriptors.Descriptor mapDescriptor;
     private final Descriptors.FieldDescriptor keyDescriptor;
     private final Descriptors.FieldDescriptor valueDescriptor;
-    private final ToProtoField<BK> keyToProto;
-    private final ToProtoField<BV> valueToProto;
+    private final ToProtoFieldSetter<BK> keyToProto;
+    private final ToProtoFieldSetter<BV> valueToProto;
 
     @SuppressWarnings("unchecked")
-    ToProtoMapToRepeated(Descriptors.FieldDescriptor fieldDescriptor) {
+    ToProtoMapSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
       mapDescriptor = fieldDescriptor.getMessageType();
       keyDescriptor = mapDescriptor.findFieldByNumber(1);
       valueDescriptor = mapDescriptor.findFieldByNumber(2);
-      keyToProto = (ToProtoField<BK>) createToProtoSingular(keyDescriptor);
-      valueToProto = (ToProtoField<BV>) createToProtoSingular(valueDescriptor);
+      keyToProto = (ToProtoFieldSetter<BK>) createToProtoSingularSetter(keyDescriptor);
+      valueToProto = (ToProtoFieldSetter<BV>) createToProtoSingularSetter(valueDescriptor);
     }
 
     @Override
@@ -438,9 +445,9 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoEnum
-      extends ToProtoUnwrappable<EnumerationType.Value, Descriptors.EnumValueDescriptor> {
-    ToProtoEnum(Descriptors.FieldDescriptor fieldDescriptor) {
+  static class ToProtoEnumSetter
+      extends ToProtoUnwrappableSetter<EnumerationType.Value, Descriptors.EnumValueDescriptor> {
+    ToProtoEnumSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
@@ -456,11 +463,11 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoMessage extends ToProtoUnwrappable<Row, Message> {
+  static class ToProtoMessageSetter extends ToProtoUnwrappableSetter<Row, Message> {
     private final Descriptors.Descriptor descriptor;
     private final SerializableFunction<Row, Message> converter;
 
-    ToProtoMessage(Descriptors.FieldDescriptor fieldDescriptor) {
+    ToProtoMessageSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
       this.descriptor = fieldDescriptor.getMessageType();
       this.converter = ProtoBeamConverter.toProto(descriptor);
@@ -478,21 +485,21 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoOneOf implements ToProtoSetter<OneOfType.Value> {
-    private final Map<Integer, ToProtoField<Object>> converters;
+  static class ToProtoOneOfSetter implements ToProtoSetter<OneOfType.Value> {
+    private final Map<Integer, ToProtoFieldSetter<Object>> converters;
 
-    ToProtoOneOf(Descriptors.OneofDescriptor oneofDescriptor) {
+    ToProtoOneOfSetter(Descriptors.OneofDescriptor oneofDescriptor) {
       this.converters = createConverters(oneofDescriptor.getFields());
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<Integer, ToProtoField<Object>> createConverters(
+    private static Map<Integer, ToProtoFieldSetter<Object>> createConverters(
         List<Descriptors.FieldDescriptor> fieldDescriptors) {
-      ImmutableMap.Builder<Integer, ToProtoField<Object>> builder = ImmutableMap.builder();
+      ImmutableMap.Builder<Integer, ToProtoFieldSetter<Object>> builder = ImmutableMap.builder();
       for (Descriptors.FieldDescriptor fieldDescriptor : fieldDescriptors) {
         builder.put(
             fieldDescriptor.getNumber(),
-            (ToProtoField<Object>) createToProtoSingular(fieldDescriptor));
+            (ToProtoFieldSetter<Object>) createToProtoSingularSetter(fieldDescriptor));
       }
       return builder.build();
     }
@@ -501,14 +508,15 @@ public class ProtoBeamConverter {
     public void setToProto(Message.Builder message, OneOfType.Value oneOfValue) {
       if (oneOfValue != null) {
         int number = oneOfValue.getCaseType().getValue();
-        ToProtoField<Object> converter = Preconditions.checkNotNull(converters.get(number));
+        ToProtoFieldSetter<Object> converter = Preconditions.checkNotNull(converters.get(number));
         converter.setToProto(message, oneOfValue.getValue());
       }
     }
   }
 
-  static class ToProtoDuration extends ToProtoUnwrappable<Duration, com.google.protobuf.Duration> {
-    ToProtoDuration(Descriptors.FieldDescriptor fieldDescriptor) {
+  static class ToProtoDurationSetter
+      extends ToProtoUnwrappableSetter<Duration, com.google.protobuf.Duration> {
+    ToProtoDurationSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
@@ -526,8 +534,8 @@ public class ProtoBeamConverter {
     }
   }
 
-  static class ToProtoTimestamp extends ToProtoUnwrappable<Instant, com.google.protobuf.Timestamp> {
-    ToProtoTimestamp(Descriptors.FieldDescriptor fieldDescriptor) {
+  static class ToProtoTimestampSetter extends ToProtoUnwrappableSetter<Instant, Timestamp> {
+    ToProtoTimestampSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
