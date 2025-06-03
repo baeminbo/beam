@@ -317,7 +317,7 @@ public class SchemaUtils {
           for (Map.Entry<Object, Object> entry : map.entrySet()) {
             sb.append(nextPrefix)
                 .append(toPrettyFieldValueString(keyType, entry.getKey(), nextPrefix))
-                .append(" = ")
+                .append(": ")
                 .append(toPrettyFieldValueString(valueType, entry.getValue(), nextPrefix));
             if (index++ < size - 1) {
               sb.append(",\n");
@@ -390,7 +390,7 @@ public class SchemaUtils {
       }
       sb.append(nextPrefix)
           .append(fieldName)
-          .append(" = ")
+          .append(": ")
           .append(toPrettyFieldValueString(field.getType(), fieldValue, nextPrefix));
       if (nonNullFieldIndex++ < nonNullFieldCount - 1) {
         sb.append(",\n");
