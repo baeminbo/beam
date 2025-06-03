@@ -45,7 +45,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
 
-public class ProtoDynamicMessageConverter {
+public class ProtoBeamConverter {
 
   public static SerializableFunction<@NonNull Row, @NonNull Message> toProto(
       Descriptors.Descriptor descriptor) {
@@ -55,10 +55,8 @@ public class ProtoDynamicMessageConverter {
         Descriptors.OneofDescriptor realContainingOneof = fieldDescriptor.getRealContainingOneof();
         if (realContainingOneof.getField(0) == fieldDescriptor) {
           toProtos.put(realContainingOneof.getName(), new ToProtoOneOf(realContainingOneof));
-        } else {
-          // skip non-first field for a real oneof.
-          continue;
         }
+        // continue
       } else if (fieldDescriptor.isRepeated()) {
         if (fieldDescriptor.isMapField()) {
           toProtos.put(fieldDescriptor.getName(), new ToProtoMapToRepeated<>(fieldDescriptor));
@@ -353,121 +351,13 @@ public class ProtoDynamicMessageConverter {
     }
   }
 
-  //  static class ToProtoInt extends ToProtoWrappable<Integer, Integer> {
-  //    ToProtoInt(Descriptors.FieldDescriptor fieldDescriptor) {
-  //      super(fieldDescriptor);
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Integer defaultValue() {
-  //      return 0;
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Integer convertNonNull(@NonNull Integer beamValue) {
-  //      return beamValue;
-  //    }
-  //  }
-
-  //  static class ToProtoLong extends ToProtoWrappable<Long, Long> {
-  //    ToProtoLong(Descriptors.FieldDescriptor fieldDescriptor) {
-  //      super(fieldDescriptor);
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Long defaultValue() {
-  //      return 0L;
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Long convertNonNull(@NonNull Long beamValue) {
-  //      return beamValue;
-  //    }
-  //  }
-
-  //  static class ToProtoFloat extends ToProtoWrappable<Float, Float> {
-  //    ToProtoFloat(Descriptors.FieldDescriptor fieldDescriptor) {
-  //      super(fieldDescriptor);
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Float defaultValue() {
-  //      return 0f;
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Float convertNonNull(@NonNull Float beamValue) {
-  //      return beamValue;
-  //    }
-  //  }
-
-  //  static class ToProtoDouble extends ToProtoWrappable<Double, Double> {
-  //    ToProtoDouble(Descriptors.FieldDescriptor fieldDescriptor) {
-  //      super(fieldDescriptor);
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Double defaultValue() {
-  //      return 0.0;
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Double convertNonNull(@NonNull Double beamValue) {
-  //      return beamValue;
-  //    }
-  //  }
-
-  //  static class ToProtoBoolean extends ToProtoWrappable<Boolean, Boolean> {
-  //    ToProtoBoolean(Descriptors.FieldDescriptor fieldDescriptor) {
-  //      super(fieldDescriptor);
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Boolean defaultValue() {
-  //      return false;
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    Boolean convertNonNull(@NonNull Boolean beamValue) {
-  //      return beamValue;
-  //    }
-  //  }
-  //
-  //  static class ToProtoString extends ToProtoWrappable<String, String> {
-  //    ToProtoString(Descriptors.FieldDescriptor fieldDescriptor) {
-  //      super(fieldDescriptor);
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    String defaultValue() {
-  //      return "";
-  //    }
-  //
-  //    @Override
-  //    @NonNull
-  //    String convertNonNull(@NonNull String beamValue) {
-  //      return beamValue;
-  //    }
-  //  }
-
   static class ToProtoByteString extends ToProtoWrappable<byte[], ByteString> {
     ToProtoByteString(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
 
     @Override
-    ByteString defaultValue() {
+    @NonNull ByteString defaultValue() {
       return ByteString.EMPTY;
     }
 
@@ -571,7 +461,7 @@ public class ProtoDynamicMessageConverter {
     ToProtoMessage(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
       this.descriptor = fieldDescriptor.getMessageType();
-      this.converter = ProtoDynamicMessageConverter.toProto(descriptor);
+      this.converter = ProtoBeamConverter.toProto(descriptor);
     }
 
     @Override
@@ -725,102 +615,6 @@ public class ProtoDynamicMessageConverter {
     abstract @NonNull B convertNonNull(@NonNull P protoValue);
   }
 
-  //  static class ToBeamInteger extends ToBeamWrappable<Integer, Integer> {
-  //    ToBeamInteger(Schema.FieldType fieldType) {
-  //      super(fieldType);
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Integer defaultValue() {
-  //      return 0;
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Integer convertNonNull(@NonNull Integer protoValue) {
-  //      return protoValue;
-  //    }
-  //  }
-  //
-  //  static class ToBeamLong extends ToBeamWrappable<Long, Long> {
-  //    ToBeamLong(Schema.FieldType fieldType) {
-  //      super(fieldType);
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Long defaultValue() {
-  //      return 0L;
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Long convertNonNull(@NonNull Long protoValue) {
-  //      return protoValue;
-  //    }
-  //  }
-  //
-  //  static class ToBeamFloat extends ToBeamWrappable<Float, Float> {
-  //    ToBeamFloat(Schema.FieldType fieldType) {
-  //      super(fieldType);
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Float defaultValue() {
-  //      return 0f;
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Float convertNonNull(@NonNull Float protoValue) {
-  //      return protoValue;
-  //    }
-  //  }
-  //
-  //  static class ToBeamDouble extends ToBeamWrappable<Double, Double> {
-  //    ToBeamDouble(Schema.FieldType fieldType) {
-  //      super(fieldType);
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Double defaultValue() {
-  //      return 0.0;
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Double convertNonNull(@NonNull Double protoValue) {
-  //      return protoValue;
-  //    }
-  //  }
-  //
-  //  static class ToBeamString extends ToBeamWrappable<String, String> {
-  //    ToBeamString(Schema.FieldType fieldType) {
-  //      super(fieldType);
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull String defaultValue() {
-  //      return "";
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull String convertNonNull(@NonNull String protoValue) {
-  //      return protoValue;
-  //    }
-  //  }
-
-  //  static class ToBeamBoolean extends ToBeamWrappable<Boolean, Boolean> {
-  //    ToBeamBoolean(Schema.FieldType fieldType) {
-  //      super(fieldType);
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Boolean defaultValue() {
-  //      return false;
-  //    }
-  //
-  //    @Override
-  //    protected @NonNull Boolean convertNonNull(@NonNull Boolean protoValue) {
-  //      return protoValue;
-  //    }
-  //  }
-
   static class BeamBytesConverter extends BeamWrappableConverter<Object, ByteString, byte[]> {
     public BeamBytesConverter(Schema.FieldType fieldType) {
       super(fieldType);
@@ -917,7 +711,7 @@ public class ProtoDynamicMessageConverter {
     public BeamRowConverter(Schema.FieldType fieldType) {
       super(fieldType);
       rowSchema = Preconditions.checkNotNull(fieldType.getRowSchema());
-      converter = ProtoDynamicMessageConverter.fromProto(rowSchema);
+      converter = ProtoBeamConverter.fromProto(rowSchema);
     }
 
     @Override

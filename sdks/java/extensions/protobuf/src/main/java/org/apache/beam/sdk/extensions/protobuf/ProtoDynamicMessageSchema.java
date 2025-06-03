@@ -204,12 +204,12 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
   @SuppressWarnings("unchecked")
   public SerializableFunction<T, Row> getToRowFunction() {
     return (SerializableFunction<T, Row>)
-        ProtoDynamicMessageConverter.fromProto(context.getSchema());
+        ProtoBeamConverter.fromProto(context.getSchema());
   }
 
   @SuppressWarnings("unchecked")
   public SerializableFunction<Row, T> getFromRowFunction() {
-    return (SerializableFunction<Row, T>) ProtoDynamicMessageConverter.toProto(descriptor);
+    return (SerializableFunction<Row, T>) ProtoBeamConverter.toProto(descriptor);
   }
 
   /**
