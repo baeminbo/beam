@@ -327,6 +327,8 @@ class TestProtoSchemas {
           .setOptions(withTypeName("proto3_schema_messages.MapPrimitive"))
           .build();
 
+  static final Schema PROTO3_MAP_WRAPPED_SCHEMA =
+      PROTO3_MAP_PRIMITIVE_SCHEMA.withOptions(withTypeName("proto3_schema_messages.MapWrapped"));
   // A sample instance of the row.
   static final Row PROTO3_MAP_PRIMITIVE_ROW =
       Row.withSchema(PROTO3_MAP_PRIMITIVE_SCHEMA)

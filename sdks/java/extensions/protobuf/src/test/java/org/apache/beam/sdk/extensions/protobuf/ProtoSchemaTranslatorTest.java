@@ -81,6 +81,13 @@ public class ProtoSchemaTranslatorTest {
   }
 
   @Test
+  public void testMapWrappedSchema() {
+    assertEquals(
+        TestProtoSchemas.PROTO3_MAP_WRAPPED_SCHEMA,
+        ProtoSchemaTranslator.getSchema(Proto3SchemaMessages.MapWrapped.class));
+  }
+
+  @Test
   public void testNestedSchema() {
     assertEquals(
         TestProtoSchemas.PROTO3_NESTED_SCHEMA,

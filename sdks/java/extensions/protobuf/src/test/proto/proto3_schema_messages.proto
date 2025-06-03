@@ -76,6 +76,15 @@ message MapPrimitive {
     map<string, bytes> string_bytes_map = 4;
 }
 
+// MapPrimitive and MapWrapped have the same Beam Schema.
+message MapWrapped {
+  map<string, google.protobuf.StringValue> string_string_map = 1;
+  map<string, google.protobuf.Int32Value> string_int_map = 2;
+  map<int32, google.protobuf.StringValue> int_string_map = 3;
+  map<string, google.protobuf.BytesValue> string_bytes_map = 4;
+}
+
+
 message Nested {
   Primitive nested = 1;
   repeated Primitive nested_list = 2;
