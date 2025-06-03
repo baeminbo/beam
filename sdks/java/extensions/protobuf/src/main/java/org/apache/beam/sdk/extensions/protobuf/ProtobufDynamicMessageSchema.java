@@ -17,10 +17,17 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
+import com.google.protobuf.BoolValue;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.DoubleValue;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.FloatValue;
+import com.google.protobuf.Int32Value;
+import com.google.protobuf.Int64Value;
 import com.google.protobuf.Message;
+import com.google.protobuf.StringValue;
 import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
@@ -218,6 +225,168 @@ public class ProtobufDynamicMessageSchema {
     return builder.build();
   }
 
+  /**
+   *
+   *
+   * <h3>{@link PrimitiveConverter}</h3>
+   *
+   * >
+   *
+   * <table>
+   *   <tr>
+   *     <th>ProtoBuf</th>
+   *     <th>ProtoBuf JavaType (Unwrapped)</th>
+   *     <th>Beam</th>
+   *     <th>Beam InputType</th>
+   *   </tr>
+   *   <tr>
+   *     <td>double, {@link DoubleValue}</td>
+   *     <td>{@code double}</td>
+   *     <td>{@link Schema.FieldType#DOUBLE}</td>
+   *     <td>{@code double}</td>
+   *   </tr>
+   *   <tr>
+   *     <td>float, {@link FloatValue}</td>
+   *     <td>{@code float}</td>
+   *     <td>{@link Schema.FieldType#FLOAT}</td>
+   *     <td>{@code float}</td>
+   *   </tr>
+   *   <tr>
+   *     <td>int32, {@link Int32Value}</td>
+   *     <td>{@code int}</td>
+   *     <td>{@link Schema.FieldType#INT32}</td>
+   *     <td>{@code int}</td>
+   *   </tr>
+   *   <tr>
+   *     <td>int64, {@link Int64Value}</td>
+   *     <td>{@code long}</td>
+   *     <td>{@link Schema.FieldType#INT64}</td>
+   *     <td>{@code long}</td>
+   *   </tr>
+   *   <tr>
+   *     <td>bool, {@link BoolValue}</td>
+   *     <td>{@code boolean}</td>
+   *     <td>{@link Schema.FieldType#BOOLEAN}</td>
+   *     <td>{@code boolean}</td>
+   *   </tr>
+   *   <tr>
+   *     <td>string, {@link StringValue}</td>
+   *     <td>{@code String}</td>
+   *     <td>{@link Schema.FieldType#STRING}</td>
+   *     <td>{@code String}</td>
+   *   </tr>
+   * </table>
+   *
+   * <h3>{@link BytesConverter}</h3>
+   *
+   * <table>
+   *   <tr>
+   *     <th>ProtoBuf</th>
+   *     <th>ProtoBuf JavaType (Unwrapped)</th>
+   *     <th>Beam</th>
+   *     <th>Beam InputType</th>
+   *   </tr>
+   *   <tr>
+   *     <td>bytes, {@link BytesValue}</td>
+   *     <td>{@link ByteString}</td>
+   *     <td>{@link Schema.FieldType#BYTES}</td>
+   *     <td>{@code byte[]}</td>
+   *   </tr>
+   * </table>
+   *
+   * <h3>{@link ProtoSchemaLogicalTypeConverter}</h3>
+   *
+   * <table>
+   *   <tr>
+   *     <th>ProtoBuf</th>
+   *     <th>ProtoBuf JavaType</th>
+   *     <th>Beam</th>
+   *     <th>Beam InputType</th>
+   *   </tr>
+   *   <tr>
+   *     <td>uint32, UInt32Value</td>
+   *     <td>int</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.UInt32}</td>
+   *     <td>int</td>
+   *   </tr>
+   *   <tr>
+   *     <td>uint64, UInt64Value</td>
+   *     <td>long</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.UInt64}</td>
+   *     <td>long</td>
+   *   </tr>
+   *   <tr>
+   *     <td>sint32</td>
+   *     <td>int</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.SInt32}</td>
+   *     <td>int</td>
+   *   </tr>
+   *   <tr>
+   *     <td>sint64</td>
+   *     <td>long</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.SInt64}</td>
+   *     <td>long</td>
+   *   </tr>
+   *   <tr>
+   *     <td>fixed32</td>
+   *     <td>int</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.Fixed32}</td>
+   *     <td>int</td>
+   *   </tr>
+   *   <tr>
+   *     <td>fixed64</td>
+   *     <td>long</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.Fixed64}</td>
+   *     <td>long</td>
+   *   </tr>
+   *   <tr>
+   *     <td>sfixed32</td>
+   *     <td>int</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.SFixed32}</td>
+   *     <td>int</td>
+   *   </tr>
+   *   <tr>
+   *     <td>sfixed64</td>
+   *     <td>long</td>
+   *     <td>{@link ProtoSchemaLogicalTypes.SFixed64}</td>
+   *     <td>long</td>
+   *   </tr>
+   * </table>
+   *
+   * <h3>DurationConverter</h3>
+   *
+   * <table>
+   *   <tr>
+   *     <th>ProtoBuf</th>
+   *     <th>ProtoBuf JavaType</th>
+   *     <th>Beam</th>
+   *     <th>Beam InputType</th>
+   *   </tr>
+   *   <tr>
+   *     <td>{@link com.google.protobuf.Duration}</td>
+   *     <td>{@link com.google.protobuf.Duration}</td>
+   *     <td>{@link NanosDuration}</td>
+   *     <td>{@link Duration} (java.time)</td>
+   *   </tr>
+   * </table>
+   *
+   * <h3>TimestampConverter</h3>
+   *
+   * <li>
+   *
+   *     <ol>
+   *       Timestamp
+   * </ol>
+   *
+   * Not supported
+   * <li>
+   *
+   *     <ol>
+   *       Any
+   * </ol>
+   *
+   * <li>
+   */
   public interface Converter {
     @Nullable
     Object convertFromProtoObject(@Nullable Object protoObject);

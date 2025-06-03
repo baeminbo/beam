@@ -24,11 +24,13 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
+import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.schemas.Schema;
@@ -47,30 +49,33 @@ public class ProtoDynamicMessageConverter {
 
   public static SerializableFunction<@NonNull Row, @NonNull Message> toProto(
       Descriptors.Descriptor descriptor) {
-    List<ToProto> toProtos = new ArrayList<>();
+    Map<String, ToProto<?>> toProtos = new LinkedHashMap<>();
     for (Descriptors.FieldDescriptor fieldDescriptor : descriptor.getFields()) {
       if (fieldDescriptor.getRealContainingOneof() != null) {
         Descriptors.OneofDescriptor realContainingOneof = fieldDescriptor.getRealContainingOneof();
         if (realContainingOneof.getField(0) == fieldDescriptor) {
-          toProtos.add(new ToProtoOneOf(realContainingOneof));
+          toProtos.put(realContainingOneof.getName(), new ToProtoOneOf(realContainingOneof));
         } else {
           // skip non-first field for a real oneof.
           continue;
         }
       } else if (fieldDescriptor.isRepeated()) {
         if (fieldDescriptor.isMapField()) {
-          toProtos.add(new ToProtoMapToRepeated<>(fieldDescriptor));
+          toProtos.put(fieldDescriptor.getName(), new ToProtoMapToRepeated<>(fieldDescriptor));
         } else {
-          toProtos.add(new ToProtoIterableToRepeated<>(fieldDescriptor));
+          toProtos.put(fieldDescriptor.getName(), new ToProtoIterableToRepeated<>(fieldDescriptor));
         }
       } else {
-        toProtos.add(createToProtoSingular(fieldDescriptor));
+        toProtos.put(fieldDescriptor.getName(), createToProtoSingular(fieldDescriptor));
       }
     }
     return row -> {
       DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor);
-      for (ToProto toProto : toProtos) {
-        toProto.setProtoField(message, row);
+      for (Map.Entry<String, ToProto<?>> entry : toProtos.entrySet()) {
+        String fieldName = entry.getKey();
+        @SuppressWarnings("unchecked")
+        ToProto<Object> converter = (ToProto<Object>) entry.getValue();
+        converter.setProtoField(message, row.getValue(fieldName));
       }
       return message.build();
     };
@@ -104,14 +109,40 @@ public class ProtoDynamicMessageConverter {
       case ENUM:
         return new ToProtoEnum(fieldDescriptor);
       case MESSAGE:
-        return new ToProtoMessage(fieldDescriptor);
+        String fullName = fieldDescriptor.getMessageType().getFullName();
+        switch (fullName) {
+          case "google.protobuf.Int32Value":
+          case "google.protobuf.UInt32Value":
+            return new ToProtoPassThrough<>(fieldDescriptor, 0);
+          case "google.protobuf.Int64Value":
+          case "google.protobuf.UInt64Value":
+            return new ToProtoPassThrough<>(fieldDescriptor, 0L);
+          case "google.protobuf.FloatValue":
+            return new ToProtoPassThrough<>(fieldDescriptor, 0f);
+          case "google.protobuf.DoubleValue":
+            return new ToProtoPassThrough<>(fieldDescriptor, 0.0);
+          case "google.protobuf.StringValue":
+            return new ToProtoPassThrough<>(fieldDescriptor, "");
+          case "google.protobuf.BoolValue":
+            return new ToProtoPassThrough<>(fieldDescriptor, false);
+          case "google.protobuf.BytesValue":
+            return new ToProtoByteString(fieldDescriptor);
+          case "google.protobuf.Timestamp":
+            return new ToProtoTimestamp(fieldDescriptor);
+          case "google.protobuf.Duration":
+            return new ToProtoDuration(fieldDescriptor);
+          case "google.protobuf.Any":
+            throw new UnsupportedOperationException("google.protobuf.Any is not supported");
+          default:
+            return new ToProtoMessage(fieldDescriptor);
+        }
       default:
         throw new UnsupportedOperationException(
             "Unsupported proto type: " + fieldDescriptor.getJavaType());
     }
   }
 
-  public static SerializableFunction<@NonNull Message, @NonNull Row> toBeam(Schema schema) {
+  public static SerializableFunction<@NonNull Message, @NonNull Row> fromProto(Schema schema) {
     List<FromProto<?>> toBeams = new ArrayList<>();
     for (Schema.Field field : schema.getFields()) {
       Schema.FieldType fieldType = field.getType();
@@ -131,28 +162,28 @@ public class ProtoDynamicMessageConverter {
     };
   }
 
-  static BeamConverter<?> createBeamConverter(Schema.FieldType fieldType) {
+  static BeamConverter<?, ?> createBeamConverter(Schema.FieldType fieldType) {
     switch (fieldType.getTypeName()) {
       case BYTE:
         throw new UnsupportedOperationException();
       case INT16:
         throw new UnsupportedOperationException();
       case INT32:
-        return new BeamPassThroughType<>(fieldType, 0);
+        return new BeamPassThroughConverter<>(fieldType, 0);
       case INT64:
-        return new BeamPassThroughType<>(fieldType, 0L);
+        return new BeamPassThroughConverter<>(fieldType, 0L);
       case DECIMAL:
         throw new UnsupportedOperationException();
       case FLOAT:
-        return new BeamPassThroughType<>(fieldType, 0f);
+        return new BeamPassThroughConverter<>(fieldType, 0f);
       case DOUBLE:
-        return new BeamPassThroughType<>(fieldType, 0.0);
+        return new BeamPassThroughConverter<>(fieldType, 0.0);
       case STRING:
-        return new BeamPassThroughType<>(fieldType, "");
+        return new BeamPassThroughConverter<>(fieldType, "");
       case DATETIME:
         throw new UnsupportedOperationException();
       case BOOLEAN:
-        return new BeamPassThroughType<>(fieldType, false);
+        return new BeamPassThroughConverter<>(fieldType, false);
       case BYTES:
         return new BeamBytesConverter(fieldType);
       case ARRAY:
@@ -161,25 +192,25 @@ public class ProtoDynamicMessageConverter {
       case MAP:
         return new BeamMapConverter<>(fieldType);
       case ROW:
-        return new BeamRow(fieldType);
+        return new BeamRowConverter(fieldType);
       case LOGICAL_TYPE:
         switch (Preconditions.checkNotNull(fieldType.getLogicalType()).getIdentifier()) {
           case ProtoSchemaLogicalTypes.UInt32.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SInt32.IDENTIFIER:
           case ProtoSchemaLogicalTypes.Fixed32.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SFixed32.IDENTIFIER:
-            return new BeamPassThroughType<>(fieldType, 0);
+            return new BeamPassThroughConverter<>(fieldType, 0);
           case ProtoSchemaLogicalTypes.UInt64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SInt64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.Fixed64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SFixed64.IDENTIFIER:
-            return new BeamPassThroughType<>(fieldType, 0L);
+            return new BeamPassThroughConverter<>(fieldType, 0L);
           case NanosDuration.IDENTIFIER:
             return new BeamNanosDurationConverter(fieldType);
           case NanosInstant.IDENTIFIER:
-            return new BeamNanosInstant(fieldType);
+            return new BeamNanosInstantConverter(fieldType);
           case EnumerationType.IDENTIFIER:
-            return new BeamEnumeration(fieldType);
+            return new BeamEnumerationConverter(fieldType);
           default:
             throw new UnsupportedOperationException();
         }
@@ -188,8 +219,8 @@ public class ProtoDynamicMessageConverter {
     }
   }
 
-  interface ToProto {
-    void setProtoField(Message.Builder message, Row row);
+  interface ToProto<B> {
+    void setProtoField(Message.Builder message, B beamFieldValue);
   }
 
   interface FromProto<B> {
@@ -197,33 +228,34 @@ public class ProtoDynamicMessageConverter {
     B getBeamField(Message message);
   }
 
-  static class FromProtoField<B> implements FromProto<B> {
+  static class FromProtoField<P, B> implements FromProto<B> {
     private final Schema.Field field;
-    private final BeamConverter<B> converter;
+    private final BeamConverter<P, B> converter;
 
     @SuppressWarnings("unchecked")
     FromProtoField(Schema.Field field) {
       this.field = field;
-      converter = (BeamConverter<B>) createBeamConverter(field.getType());
+      converter = (BeamConverter<P, B>) createBeamConverter(field.getType());
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public @Nullable B getBeamField(Message message) {
       Descriptors.Descriptor descriptor = message.getDescriptorForType();
       Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(field.getName());
       @Nullable Object protoValue = message.getField(fieldDescriptor);
-      return converter.convert(protoValue);
+      return converter.convert((P) protoValue);
     }
   }
 
-  abstract static class ToProtoField<B> implements ToProto {
+  abstract static class ToProtoField<B> implements ToProto<B> {
     protected final Descriptors.FieldDescriptor fieldDescriptor;
 
     ToProtoField(Descriptors.FieldDescriptor fieldDescriptor) {
       this.fieldDescriptor = fieldDescriptor;
     }
 
-    public abstract @Nullable Object convert(B beamValue);
+    public abstract @Nullable Object convert(@Nullable B beamValue);
   }
 
   abstract static class ToProtoWrappable<B, P> extends ToProtoField<B> {
@@ -232,8 +264,8 @@ public class ProtoDynamicMessageConverter {
     }
 
     @Override
-    public void setProtoField(Message.Builder message, Row row) {
-      Object protoValue = convert(row.getValue(fieldDescriptor.getName()));
+    public void setProtoField(Message.Builder message, B beamFieldValue) {
+      Object protoValue = convert(beamFieldValue);
       if (protoValue != null) {
         Descriptors.FieldDescriptor messageFieldDescriptor =
             findDescriptor(message, fieldDescriptor);
@@ -248,7 +280,7 @@ public class ProtoDynamicMessageConverter {
         return null;
       }
 
-      P protoValue = beamValue != null ? convertNonNull(beamValue) : defaultValue();
+      P protoValue = beamValue != null ? convertNonNullUnwrapped(beamValue) : defaultValue();
       if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
         // A google.protobuf wrapper
         Descriptors.Descriptor wrapperDescriptor = fieldDescriptor.getMessageType();
@@ -264,7 +296,7 @@ public class ProtoDynamicMessageConverter {
 
     abstract @NonNull P defaultValue();
 
-    abstract @NonNull P convertNonNull(@NonNull B beamValue);
+    abstract @NonNull P convertNonNullUnwrapped(@NonNull B beamValue);
   }
 
   abstract static class ToProtoUnwrappable<B, P> extends ToProtoField<B> {
@@ -273,8 +305,8 @@ public class ProtoDynamicMessageConverter {
     }
 
     @Override
-    public void setProtoField(Message.Builder message, Row row) {
-      @Nullable P protoValue = convert(row.getValue(fieldDescriptor.getName()));
+    public void setProtoField(Message.Builder message, B beamFieldValue) {
+      @Nullable P protoValue = convert(beamFieldValue);
       if (protoValue != null) {
         Descriptors.FieldDescriptor messageFieldDescriptor =
             findDescriptor(message, fieldDescriptor);
@@ -316,28 +348,28 @@ public class ProtoDynamicMessageConverter {
 
     @Override
     @NonNull
-    T convertNonNull(@NonNull T beamValue) {
+    T convertNonNullUnwrapped(@NonNull T beamValue) {
       return beamValue;
     }
   }
 
-  static class ToProtoInt extends ToProtoWrappable<Integer, Integer> {
-    ToProtoInt(Descriptors.FieldDescriptor fieldDescriptor) {
-      super(fieldDescriptor);
-    }
-
-    @Override
-    @NonNull
-    Integer defaultValue() {
-      return 0;
-    }
-
-    @Override
-    @NonNull
-    Integer convertNonNull(@NonNull Integer beamValue) {
-      return beamValue;
-    }
-  }
+  //  static class ToProtoInt extends ToProtoWrappable<Integer, Integer> {
+  //    ToProtoInt(Descriptors.FieldDescriptor fieldDescriptor) {
+  //      super(fieldDescriptor);
+  //    }
+  //
+  //    @Override
+  //    @NonNull
+  //    Integer defaultValue() {
+  //      return 0;
+  //    }
+  //
+  //    @Override
+  //    @NonNull
+  //    Integer convertNonNull(@NonNull Integer beamValue) {
+  //      return beamValue;
+  //    }
+  //  }
 
   //  static class ToProtoLong extends ToProtoWrappable<Long, Long> {
   //    ToProtoLong(Descriptors.FieldDescriptor fieldDescriptor) {
@@ -429,7 +461,7 @@ public class ProtoDynamicMessageConverter {
   //    }
   //  }
 
-  static class ToProtoByteString extends ToProtoUnwrappable<byte[], ByteString> {
+  static class ToProtoByteString extends ToProtoWrappable<byte[], ByteString> {
     ToProtoByteString(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
     }
@@ -441,7 +473,7 @@ public class ProtoDynamicMessageConverter {
 
     @Override
     @NonNull
-    ByteString convertNonNull(byte @NonNull [] beamValue) {
+    ByteString convertNonNullUnwrapped(byte @NonNull [] beamValue) {
       return ByteString.copyFrom(beamValue);
     }
   }
@@ -474,13 +506,13 @@ public class ProtoDynamicMessageConverter {
     }
   }
 
-  static class ToProtoMapToRepeated<BK, BV, PK, PV>
-      extends ToProtoUnwrappable<Map<@NonNull BK, @NonNull BV>, List<@NonNull Message>> {
+  static class ToProtoMapToRepeated<BK, BV>
+      extends ToProtoUnwrappable<Map<@Nullable BK, @Nullable BV>, List<@NonNull Message>> {
     private final Descriptors.Descriptor mapDescriptor;
     private final Descriptors.FieldDescriptor keyDescriptor;
     private final Descriptors.FieldDescriptor valueDescriptor;
-    private final ToProtoUnwrappable<BK, PK> keyToProto;
-    private final ToProtoUnwrappable<BV, PV> valueToProto;
+    private final ToProtoField<BK> keyToProto;
+    private final ToProtoField<BV> valueToProto;
 
     @SuppressWarnings("unchecked")
     ToProtoMapToRepeated(Descriptors.FieldDescriptor fieldDescriptor) {
@@ -488,8 +520,8 @@ public class ProtoDynamicMessageConverter {
       mapDescriptor = fieldDescriptor.getMessageType();
       keyDescriptor = mapDescriptor.findFieldByNumber(1);
       valueDescriptor = mapDescriptor.findFieldByNumber(2);
-      keyToProto = (ToProtoUnwrappable<BK, PK>) createToProtoSingular(keyDescriptor);
-      valueToProto = (ToProtoUnwrappable<BV, PV>) createToProtoSingular(valueDescriptor);
+      keyToProto = (ToProtoField<BK>) createToProtoSingular(keyDescriptor);
+      valueToProto = (ToProtoField<BV>) createToProtoSingular(valueDescriptor);
     }
 
     @Override
@@ -499,14 +531,14 @@ public class ProtoDynamicMessageConverter {
 
     @Override
     @Nullable
-    List<@NonNull Message> convertNonNull(@NonNull Map<@NonNull BK, @NonNull BV> beamValue) {
+    List<@NonNull Message> convertNonNull(@NonNull Map<@Nullable BK, @Nullable BV> beamValue) {
       ImmutableList.Builder<Message> protoList = ImmutableList.builder();
       beamValue.forEach(
           (k, v) -> {
             DynamicMessage.Builder message = DynamicMessage.newBuilder(mapDescriptor);
-            PK protoKey = Preconditions.checkNotNull(keyToProto.convert(k));
+            Object protoKey = Preconditions.checkNotNull(keyToProto.convert(k));
             message.setField(keyDescriptor, protoKey);
-            PV protoValue = Preconditions.checkNotNull(valueToProto.convert(v));
+            Object protoValue = Preconditions.checkNotNull(valueToProto.convert(v));
             message.setField(valueDescriptor, protoValue);
             protoList.add(message.build());
           });
@@ -554,46 +586,85 @@ public class ProtoDynamicMessageConverter {
     }
   }
 
-  static class ToProtoOneOf implements ToProto {
-    private final Descriptors.OneofDescriptor oneofDescriptor;
-    private final Map<Integer, ToProtoField<?>> converters;
+  static class ToProtoOneOf implements ToProto<OneOfType.Value> {
+    private final Map<Integer, ToProtoField<Object>> converters;
 
     ToProtoOneOf(Descriptors.OneofDescriptor oneofDescriptor) {
-      this.oneofDescriptor = oneofDescriptor;
       this.converters = createConverters(oneofDescriptor.getFields());
     }
 
-    private static Map<Integer, ToProtoField<?>> createConverters(
+    @SuppressWarnings("unchecked")
+    private static Map<Integer, ToProtoField<Object>> createConverters(
         List<Descriptors.FieldDescriptor> fieldDescriptors) {
-      ImmutableMap.Builder<Integer, ToProtoField<?>> builder = ImmutableMap.builder();
+      ImmutableMap.Builder<Integer, ToProtoField<Object>> builder = ImmutableMap.builder();
       for (Descriptors.FieldDescriptor fieldDescriptor : fieldDescriptors) {
-        builder.put(fieldDescriptor.getNumber(), createToProtoSingular(fieldDescriptor));
+        builder.put(
+            fieldDescriptor.getNumber(),
+            (ToProtoField<Object>) createToProtoSingular(fieldDescriptor));
       }
       return builder.build();
     }
 
     @Override
-    public void setProtoField(Message.Builder message, Row row) {
-      OneOfType.@Nullable Value oneOfValue = row.getValue(oneofDescriptor.getName());
+    public void setProtoField(Message.Builder message, OneOfType.Value oneOfValue) {
       if (oneOfValue != null) {
         int number = oneOfValue.getCaseType().getValue();
-        ToProtoField<?> converter = Preconditions.checkNotNull(converters.get(number));
-        converter.setProtoField(message, row);
+        ToProtoField<Object> converter = Preconditions.checkNotNull(converters.get(number));
+        converter.setProtoField(message, oneOfValue.getValue());
       }
     }
   }
 
-  abstract static class BeamConverter<B> {
+  static class ToProtoDuration extends ToProtoUnwrappable<Duration, com.google.protobuf.Duration> {
+    ToProtoDuration(Descriptors.FieldDescriptor fieldDescriptor) {
+      super(fieldDescriptor);
+    }
+
+    @Override
+    com.google.protobuf.@NonNull Duration defaultValue() {
+      return com.google.protobuf.Duration.getDefaultInstance();
+    }
+
+    @Override
+    com.google.protobuf.@NonNull Duration convertNonNull(@NonNull Duration beamValue) {
+      return com.google.protobuf.Duration.newBuilder()
+          .setSeconds(beamValue.getSeconds())
+          .setNanos(beamValue.getNano())
+          .build();
+    }
+  }
+
+  static class ToProtoTimestamp extends ToProtoUnwrappable<Instant, com.google.protobuf.Timestamp> {
+    ToProtoTimestamp(Descriptors.FieldDescriptor fieldDescriptor) {
+      super(fieldDescriptor);
+    }
+
+    @Override
+    com.google.protobuf.Timestamp defaultValue() {
+      return com.google.protobuf.Timestamp.getDefaultInstance();
+    }
+
+    @Override
+    @NonNull
+    Timestamp convertNonNull(@NonNull Instant beamValue) {
+      return com.google.protobuf.Timestamp.newBuilder()
+          .setSeconds(beamValue.getEpochSecond())
+          .setNanos(beamValue.getNano())
+          .build();
+    }
+  }
+
+  abstract static class BeamConverter<P, B> {
     protected final Schema.FieldType fieldType;
 
     BeamConverter(Schema.FieldType fieldType) {
       this.fieldType = fieldType;
     }
 
-    abstract @Nullable B convert(Object protoValue);
+    abstract @Nullable B convert(@Nullable P protoValue);
   }
 
-  abstract static class BeamWrappableConverter<P, B> extends BeamConverter<B> {
+  abstract static class BeamWrappableConverter<P, U, B> extends BeamConverter<P, B> {
 
     BeamWrappableConverter(Schema.FieldType fieldType) {
       super(fieldType);
@@ -601,20 +672,25 @@ public class ProtoDynamicMessageConverter {
 
     @SuppressWarnings("unchecked")
     @Override
-    public @Nullable B convert(Object protoValue) {
+    public @Nullable B convert(@Nullable P protoValue) {
       if (fieldType.getNullable() && protoValue == null) {
         return null;
       }
 
       if (protoValue != null) {
+        @NonNull U unwrappedProtoValue;
         if (protoValue instanceof Message) {
           // A google protobuf wrapper
           Message protoWrapper = (Message) protoValue;
           Descriptors.FieldDescriptor wrapperValueFieldDescriptor =
               protoWrapper.getDescriptorForType().findFieldByNumber(1);
-          protoValue = protoWrapper.getField(wrapperValueFieldDescriptor);
+          unwrappedProtoValue =
+              (@NonNull U)
+                  Preconditions.checkNotNull(protoWrapper.getField(wrapperValueFieldDescriptor));
+        } else {
+          unwrappedProtoValue = (@NonNull U) protoValue;
         }
-        return convertNonNull((@NonNull P) protoValue);
+        return convertNonNullWrapped(unwrappedProtoValue);
       } else {
         return defaultValue();
       }
@@ -622,24 +698,23 @@ public class ProtoDynamicMessageConverter {
 
     protected abstract @Nullable B defaultValue();
 
-    protected abstract @NonNull B convertNonNull(@NonNull P protoValue);
+    abstract @NonNull B convertNonNullWrapped(@NonNull U protoValue);
   }
 
-  abstract static class BeamUnwrappableConverter<P, B> extends BeamConverter<B> {
+  abstract static class BeamUnwrappableConverter<P, B> extends BeamConverter<P, B> {
     BeamUnwrappableConverter(Schema.FieldType fieldType) {
       super(fieldType);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     @Nullable
-    B convert(Object protoValue) {
+    B convert(@Nullable P protoValue) {
       if (fieldType.getNullable() && protoValue == null) {
         return null;
       }
 
       if (protoValue != null) {
-        return convertNonNull((@NonNull P) protoValue);
+        return convertNonNull(protoValue);
       } else {
         return defaultValue();
       }
@@ -647,7 +722,7 @@ public class ProtoDynamicMessageConverter {
 
     protected abstract @NonNull B defaultValue();
 
-    protected abstract @NonNull B convertNonNull(@NonNull P protoValue);
+    abstract @NonNull B convertNonNull(@NonNull P protoValue);
   }
 
   //  static class ToBeamInteger extends ToBeamWrappable<Integer, Integer> {
@@ -746,7 +821,7 @@ public class ProtoDynamicMessageConverter {
   //    }
   //  }
 
-  static class BeamBytesConverter extends BeamWrappableConverter<ByteString, byte[]> {
+  static class BeamBytesConverter extends BeamWrappableConverter<Object, ByteString, byte[]> {
     public BeamBytesConverter(Schema.FieldType fieldType) {
       super(fieldType);
     }
@@ -757,91 +832,92 @@ public class ProtoDynamicMessageConverter {
     }
 
     @Override
-    protected byte @NonNull [] convertNonNull(@NonNull ByteString protoValue) {
+    protected byte @NonNull [] convertNonNullWrapped(@NonNull ByteString protoValue) {
       return protoValue.toByteArray();
     }
   }
 
   static class BeamListConverter<P, B>
-      extends BeamUnwrappableConverter<List<@NonNull P>, List<B>> {
-    private final BeamWrappableConverter<P, B> elementConverter;
+      extends BeamUnwrappableConverter<List<@NonNull P>, List<@NonNull B>> {
+    private final BeamConverter<P, B> elementConverter;
 
     @SuppressWarnings("unchecked")
     public BeamListConverter(Schema.FieldType fieldType) {
       super(fieldType);
       elementConverter =
-          (BeamWrappableConverter<P, B>)
+          (BeamConverter<P, B>)
               createBeamConverter(Preconditions.checkNotNull(fieldType.getCollectionElementType()));
     }
 
     @Override
-    protected @NonNull List<B> defaultValue() {
+    protected @NonNull List<@NonNull B> defaultValue() {
       return Collections.emptyList();
     }
 
     @Override
-    protected @NonNull List<B> convertNonNull(@NonNull List<@NonNull P> protoList) {
-      List<B> beamList = new ArrayList<>();
-      for (P element : protoList) {
-        beamList.add(elementConverter.convertNonNull(element));
+    protected @NonNull List<@NonNull B> convertNonNull(@NonNull List<@NonNull P> protoList) {
+      List<@NonNull B> beamList = new ArrayList<>();
+      for (@NonNull P element : protoList) {
+        beamList.add(Preconditions.checkNotNull(elementConverter.convert(element)));
       }
       return beamList;
     }
   }
 
   static class BeamMapConverter<PK, PV, BK, BV>
-      extends BeamUnwrappableConverter<List<Message>, Map<BK, BV>> {
-    private final BeamWrappableConverter<PK, BK> keyConverter;
-    private final BeamWrappableConverter<PV, BV> valueConverter;
+      extends BeamUnwrappableConverter<List<@NonNull Message>, Map<@NonNull BK, @NonNull BV>> {
+    private final BeamConverter<PK, BK> keyConverter;
+    private final BeamConverter<PV, BV> valueConverter;
 
     @SuppressWarnings("unchecked")
     public BeamMapConverter(Schema.FieldType fieldType) {
       super(fieldType);
       keyConverter =
-          (BeamWrappableConverter<PK, BK>)
+          (BeamConverter<PK, BK>)
               createBeamConverter(Preconditions.checkNotNull(fieldType.getMapKeyType()));
       valueConverter =
-          (BeamWrappableConverter<PV, BV>)
+          (BeamConverter<PV, BV>)
               createBeamConverter(Preconditions.checkNotNull(fieldType.getMapValueType()));
     }
 
     @Override
-    protected @NonNull Map<BK, BV> defaultValue() {
+    protected @NonNull Map<@NonNull BK, @NonNull BV> defaultValue() {
       return Collections.emptyMap();
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    protected @NonNull Map<BK, BV> convertNonNull(@NonNull List<Message> protoList) {
+    protected @NonNull Map<@NonNull BK, @NonNull BV> convertNonNull(
+        @NonNull List<@NonNull Message> protoList) {
       if (protoList.isEmpty()) {
         return Collections.emptyMap();
       }
       Descriptors.Descriptor descriptor = protoList.get(0).getDescriptorForType();
       Descriptors.FieldDescriptor keyFieldDescriptor = descriptor.findFieldByNumber(1);
       Descriptors.FieldDescriptor valueFieldDescriptor = descriptor.findFieldByNumber(2);
-      Map<BK, BV> beamMap = new HashMap<>();
+      Map<@NonNull BK, @NonNull BV> beamMap = new HashMap<>();
       protoList.forEach(
           protoElement -> {
             PK protoKey =
                 Preconditions.checkNotNull((PK) protoElement.getField(keyFieldDescriptor));
             PV protoValue =
                 Preconditions.checkNotNull((PV) protoElement.getField(valueFieldDescriptor));
-            BK beamKey = keyConverter.convertNonNull(protoKey);
-            BV beamValue = valueConverter.convertNonNull(protoValue);
+            BK beamKey = Preconditions.checkNotNull(keyConverter.convert(protoKey));
+            BV beamValue = Preconditions.checkNotNull(valueConverter.convert(protoValue));
             beamMap.put(beamKey, beamValue);
           });
       return beamMap;
     }
   }
 
-  private static class BeamRow extends BeamUnwrappableConverter<Message, Row> {
+  static class BeamRowConverter extends BeamUnwrappableConverter<Message, Row> {
     private final Schema rowSchema;
     private final SerializableFunction<@NonNull Message, @NonNull Row> converter;
 
-    public BeamRow(Schema.FieldType fieldType) {
+    public BeamRowConverter(Schema.FieldType fieldType) {
       super(fieldType);
       rowSchema = Preconditions.checkNotNull(fieldType.getRowSchema());
-      converter = ProtoDynamicMessageConverter.toBeam(rowSchema);
+      converter = ProtoDynamicMessageConverter.fromProto(rowSchema);
     }
 
     @Override
@@ -855,10 +931,10 @@ public class ProtoDynamicMessageConverter {
     }
   }
 
-  private static class BeamPassThroughType<T> extends BeamWrappableConverter<T, T> {
+  static class BeamPassThroughConverter<T> extends BeamWrappableConverter<Object, T, T> {
     private final @NonNull T defaultValue;
 
-    public BeamPassThroughType(Schema.FieldType fieldType, @NonNull T defaultValue) {
+    public BeamPassThroughConverter(Schema.FieldType fieldType, @NonNull T defaultValue) {
       super(fieldType);
       this.defaultValue = defaultValue;
     }
@@ -869,7 +945,7 @@ public class ProtoDynamicMessageConverter {
     }
 
     @Override
-    protected @NonNull T convertNonNull(@NotNull T protoValue) {
+    protected @NonNull T convertNonNullWrapped(@NotNull T protoValue) {
       return protoValue;
     }
   }
@@ -889,14 +965,14 @@ public class ProtoDynamicMessageConverter {
       Descriptors.Descriptor durationDescriptor = protoValue.getDescriptorForType();
       Descriptors.FieldDescriptor secondsFieldDescriptor = durationDescriptor.findFieldByNumber(1);
       Descriptors.FieldDescriptor nanosFieldDescriptor = durationDescriptor.findFieldByNumber(2);
-      int seconds = (int) protoValue.getField(secondsFieldDescriptor);
-      long nanos = (long) protoValue.getField(nanosFieldDescriptor);
+      long seconds = (long) protoValue.getField(secondsFieldDescriptor);
+      int nanos = (int) protoValue.getField(nanosFieldDescriptor);
       return Duration.ofSeconds(seconds, nanos);
     }
   }
 
-  private static class BeamNanosInstant extends BeamUnwrappableConverter<Message, Instant> {
-    BeamNanosInstant(Schema.FieldType fieldType) {
+  static class BeamNanosInstantConverter extends BeamUnwrappableConverter<Message, Instant> {
+    BeamNanosInstantConverter(Schema.FieldType fieldType) {
       super(fieldType);
     }
 
@@ -910,17 +986,17 @@ public class ProtoDynamicMessageConverter {
       Descriptors.Descriptor timestampDescriptor = protoValue.getDescriptorForType();
       Descriptors.FieldDescriptor secondsFieldDescriptor = timestampDescriptor.findFieldByNumber(1);
       Descriptors.FieldDescriptor nanosFieldDescriptor = timestampDescriptor.findFieldByNumber(2);
-      int seconds = (int) protoValue.getField(secondsFieldDescriptor);
-      long nanos = (long) protoValue.getField(nanosFieldDescriptor);
+      long seconds = (long) protoValue.getField(secondsFieldDescriptor);
+      int nanos = (int) protoValue.getField(nanosFieldDescriptor);
       return Instant.ofEpochSecond(seconds, nanos);
     }
   }
 
-  private static class BeamEnumeration
+  static class BeamEnumerationConverter
       extends BeamUnwrappableConverter<Descriptors.EnumValueDescriptor, EnumerationType.Value> {
     private final EnumerationType enumerationType;
 
-    BeamEnumeration(Schema.FieldType fieldType) {
+    BeamEnumerationConverter(Schema.FieldType fieldType) {
       super(fieldType);
       enumerationType = fieldType.getLogicalType(EnumerationType.class);
     }
@@ -940,17 +1016,19 @@ public class ProtoDynamicMessageConverter {
 
   static class FromProtoOneOf implements FromProto<OneOfType.Value> {
     private final OneOfType oneOfType;
-    private final Map<String, BeamConverter<?>> converter;
+    private final Map<String, BeamConverter<Object, ?>> converter;
 
     FromProtoOneOf(Schema.FieldType fieldType) {
       this.oneOfType = Preconditions.checkNotNull(fieldType.getLogicalType(OneOfType.class));
       this.converter = createConverters(oneOfType.getOneOfSchema());
     }
 
-    private static Map<String, BeamConverter<?>> createConverters(Schema schema) {
-      Map<String, BeamConverter<?>> converters = new HashMap<>();
+    @SuppressWarnings("unchecked")
+    private static Map<String, BeamConverter<Object, ?>> createConverters(Schema schema) {
+      Map<String, BeamConverter<Object, ?>> converters = new HashMap<>();
       for (Schema.Field field : schema.getFields()) {
-        converters.put(field.getName(), createBeamConverter(field.getType()));
+        converters.put(
+            field.getName(), (BeamConverter<Object, ?>) createBeamConverter(field.getType()));
       }
       return converters;
     }
@@ -958,12 +1036,12 @@ public class ProtoDynamicMessageConverter {
     @Override
     public OneOfType.@Nullable Value getBeamField(Message message) {
       Descriptors.Descriptor descriptor = message.getDescriptorForType();
-      for (Map.Entry<String, BeamConverter<?>> entry : converter.entrySet()) {
+      for (Map.Entry<String, BeamConverter<Object, ?>> entry : converter.entrySet()) {
         String fieldName = entry.getKey();
-        BeamConverter<?> value = entry.getValue();
+        BeamConverter<Object, ?> value = entry.getValue();
         Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(fieldName);
-        Object protoValue = message.getField(fieldDescriptor);
-        if (protoValue != null) {
+        if (message.hasField(fieldDescriptor)) {
+          Object protoValue = Preconditions.checkNotNull(message.getField(fieldDescriptor));
           return oneOfType.createValue(fieldName, value.convert(protoValue));
         }
       }
