@@ -23,16 +23,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.Timestamp;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.logicaltypes.EnumerationType;
 import org.apache.beam.sdk.schemas.logicaltypes.NanosDuration;
@@ -44,6 +35,15 @@ import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Precondit
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ProtoBeamConverter {
 
@@ -71,15 +71,6 @@ public class ProtoBeamConverter {
       }
       return message.build();
     };
-  }
-
-  static Descriptors.FieldDescriptor findDescriptor(
-      MessageOrBuilder message, Descriptors.FieldDescriptor fieldDescriptor) {
-    Descriptors.Descriptor messageDescriptor = message.getDescriptorForType();
-    Descriptors.FieldDescriptor messageFieldDescriptor =
-        messageDescriptor.findFieldByNumber(fieldDescriptor.getNumber());
-    Preconditions.checkState(messageFieldDescriptor.getName().equals(fieldDescriptor.getName()));
-    return messageFieldDescriptor;
   }
 
   static ToProtoFieldSetter<?> createToProtoFieldSetter(
@@ -249,7 +240,13 @@ public class ProtoBeamConverter {
     public @Nullable B getFromProto(Message message) {
       Descriptors.Descriptor descriptor = message.getDescriptorForType();
       Descriptors.FieldDescriptor fieldDescriptor = descriptor.findFieldByName(field.getName());
-      @Nullable Object protoValue = message.getField(fieldDescriptor);
+      @Nullable
+      Object protoValue =
+          field.getType().getNullable()
+                  && ProtoSchemaTranslator.isNullable(fieldDescriptor)
+                  && !message.hasField(fieldDescriptor)
+              ? null
+              : message.getField(fieldDescriptor);
       return converter.convert((P) protoValue);
     }
   }
@@ -273,9 +270,7 @@ public class ProtoBeamConverter {
     public void setToProto(Message.Builder message, B beamFieldValue) {
       Object protoValue = convert(beamFieldValue);
       if (protoValue != null) {
-        Descriptors.FieldDescriptor messageFieldDescriptor =
-            findDescriptor(message, fieldDescriptor);
-        message.setField(messageFieldDescriptor, protoValue);
+        message.setField(fieldDescriptor, protoValue);
       }
     }
 
@@ -314,9 +309,7 @@ public class ProtoBeamConverter {
     public void setToProto(Message.Builder message, B beamFieldValue) {
       @Nullable P protoValue = convert(beamFieldValue);
       if (protoValue != null) {
-        Descriptors.FieldDescriptor messageFieldDescriptor =
-            findDescriptor(message, fieldDescriptor);
-        message.setField(messageFieldDescriptor, protoValue);
+        message.setField(fieldDescriptor, protoValue);
       }
     }
 
@@ -355,6 +348,7 @@ public class ProtoBeamConverter {
     @Override
     @NonNull
     T convertNonNullUnwrapped(@NonNull T beamValue) {
+      Preconditions.checkArgument(beamValue.getClass().isInstance(defaultValue));
       return beamValue;
     }
   }
@@ -750,6 +744,7 @@ public class ProtoBeamConverter {
 
     @Override
     protected @NonNull T convertNonNullWrapped(@NotNull T protoValue) {
+      Preconditions.checkArgument(protoValue.getClass().isInstance(defaultValue));
       return protoValue;
     }
   }
