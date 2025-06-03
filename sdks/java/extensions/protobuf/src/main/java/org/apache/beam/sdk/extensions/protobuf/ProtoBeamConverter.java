@@ -357,7 +357,8 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    @NonNull ByteString defaultValue() {
+    @NonNull
+    ByteString defaultValue() {
       return ByteString.EMPTY;
     }
 
