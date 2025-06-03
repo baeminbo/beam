@@ -32,7 +32,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.schemas.Schema;
@@ -57,22 +56,27 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
   private final Context context;
 
   /** The toRow function to convert the Message to a Row. */
-  private transient SerializableFunction<T, Row> toRowFunction;
+  //  private transient SerializableFunction<T, Row> toRowFunction;
 
   /** The fromRow function to convert the Row to a Message. */
-  private transient SerializableFunction<Row, T> fromRowFunction;
+  //  private transient SerializableFunction<Row, T> fromRowFunction;
 
   /** List of field converters for each field in the row. */
-  private transient List<Convert> converters;
+  //  private transient List<Convert> converters;
+
+  private Descriptors.Descriptor descriptor;
 
   private ProtoDynamicMessageSchema(String messageName, ProtoDomain domain) {
-    this.context = new DescriptorContext(messageName, domain);
-    readResolve();
+    DescriptorContext descriptorContext = new DescriptorContext(messageName, domain);
+    this.context = descriptorContext;
+    this.descriptor = context.invokeNewBuilder().getDescriptorForType();
+    //    readResolve();
   }
 
   private ProtoDynamicMessageSchema(Context context) {
     this.context = context;
-    readResolve();
+    this.descriptor = context.invokeNewBuilder().getDescriptorForType();
+    //    readResolve();
   }
 
   /**
@@ -101,12 +105,12 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
   }
 
   /** Initialize the transient fields after deserialization or construction. */
-  private Object readResolve() {
-    converters = createConverters(context.getSchema());
-    toRowFunction = new MessageToRowFunction();
-    fromRowFunction = new RowToMessageFunction();
-    return this;
-  }
+  //  private Object readResolve() {
+  //    converters = createConverters(context.getSchema());
+  //    //    toRowFunction = new MessageToRowFunction();
+  //    //    fromRowFunction = new RowToMessageFunction();
+  //    return this;
+  //  }
 
   Convert createConverter(Schema.Field field) {
     Schema.FieldType fieldType = field.getType();
@@ -185,24 +189,27 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
     }
   }
 
-  private List<Convert> createConverters(Schema schema) {
-    List<Convert> fieldOverlays = new ArrayList<>();
-    for (Schema.Field field : schema.getFields()) {
-      fieldOverlays.add(createConverter(field));
-    }
-    return fieldOverlays;
-  }
+  //  private List<Convert> createConverters(Schema schema) {
+  //    List<Convert> fieldOverlays = new ArrayList<>();
+  //    for (Schema.Field field : schema.getFields()) {
+  //      fieldOverlays.add(createConverter(field));
+  //    }
+  //    return fieldOverlays;
+  //  }
 
   public Schema getSchema() {
     return context.getSchema();
   }
 
+  @SuppressWarnings("unchecked")
   public SerializableFunction<T, Row> getToRowFunction() {
-    return toRowFunction;
+    return (SerializableFunction<T, Row>)
+        ProtoDynamicMessageConverter.fromProto(context.getSchema());
   }
 
+  @SuppressWarnings("unchecked")
   public SerializableFunction<Row, T> getFromRowFunction() {
-    return fromRowFunction;
+    return (SerializableFunction<Row, T>) ProtoDynamicMessageConverter.toProto(descriptor);
   }
 
   /**
@@ -805,37 +812,37 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
     }
   }
 
-  private class MessageToRowFunction implements SerializableFunction<T, Row> {
-
-    private MessageToRowFunction() {}
-
-    @Override
-    public Row apply(T input) {
-      Schema schema = context.getSchema();
-      Row.Builder builder = Row.withSchema(schema);
-      for (Convert convert : converters) {
-        builder.addValue(convert.getFromProtoMessage((Message) input));
-      }
-      return builder.build();
-    }
-  }
-
-  private class RowToMessageFunction implements SerializableFunction<Row, T> {
-
-    private RowToMessageFunction() {}
-
-    @Override
-    public T apply(Row input) {
-      DynamicMessage.Builder builder = context.invokeNewBuilder();
-      Iterator values = input.getValues().iterator();
-      Iterator<Convert> convertIterator = converters.iterator();
-
-      for (int i = 0; i < input.getValues().size(); i++) {
-        Convert convert = convertIterator.next();
-        Object value = values.next();
-        convert.setOnProtoMessage(builder, value);
-      }
-      return (T) builder.build();
-    }
-  }
+  //  private class MessageToRowFunction implements SerializableFunction<T, Row> {
+  //
+  //    private MessageToRowFunction() {}
+  //
+  //    @Override
+  //    public Row apply(T input) {
+  //      Schema schema = context.getSchema();
+  //      Row.Builder builder = Row.withSchema(schema);
+  //      for (Convert convert : converters) {
+  //        builder.addValue(convert.getFromProtoMessage((Message) input));
+  //      }
+  //      return builder.build();
+  //    }
+  //  }
+  //
+  //  private class RowToMessageFunction implements SerializableFunction<Row, T> {
+  //
+  //    private RowToMessageFunction() {}
+  //
+  //    @Override
+  //    public T apply(Row input) {
+  //      DynamicMessage.Builder builder = context.invokeNewBuilder();
+  //      Iterator values = input.getValues().iterator();
+  //      Iterator<Convert> convertIterator = converters.iterator();
+  //
+  //      for (int i = 0; i < input.getValues().size(); i++) {
+  //        Convert convert = convertIterator.next();
+  //        Object value = values.next();
+  //        convert.setOnProtoMessage(builder, value);
+  //      }
+  //      return (T) builder.build();
+  //    }
+  //  }
 }
