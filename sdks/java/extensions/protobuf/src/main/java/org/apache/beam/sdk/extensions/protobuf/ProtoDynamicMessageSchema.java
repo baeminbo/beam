@@ -20,27 +20,25 @@ package org.apache.beam.sdk.extensions.protobuf;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import java.io.Serializable;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.values.Row;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Preconditions;
 
-import java.io.Serializable;
-
-/**
- * @deprecated Use {@link ProtoBeamConverter}
- */
+/** @deprecated Use {@link ProtoBeamConverter} */
+@SuppressWarnings({
+  "rawtypes", // TODO(https://github.com/apache/beam/issues/20447)
+})
 @Deprecated
 public class ProtoDynamicMessageSchema<T> implements Serializable {
   public static final long serialVersionUID = 1L;
 
-
-  private final Descriptors.Descriptor descriptor;
   private final Schema schema;
   private final SerializableFunction<Row, Message> toProto;
   private final SerializableFunction<Message, Row> fromProto;
 
   private ProtoDynamicMessageSchema(Descriptors.Descriptor descriptor, Schema schema) {
-    this.descriptor = descriptor;
     this.schema = schema;
     this.toProto = ProtoBeamConverter.toProto(descriptor);
     this.fromProto = ProtoBeamConverter.fromProto(schema);
@@ -62,7 +60,7 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
    */
   public static ProtoDynamicMessageSchema<DynamicMessage> forDescriptor(
       ProtoDomain domain, Descriptors.Descriptor descriptor) {
-    return forDescriptor(domain, descriptor.getName());
+    return forDescriptor(domain, descriptor.getFullName());
   }
 
   public Schema getSchema() {
@@ -70,7 +68,10 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
   }
 
   public SerializableFunction<T, Row> getToRowFunction() {
-    return message -> fromProto.apply((Message) message);
+    return message -> {
+      Message message2 = (Message) message;
+      return fromProto.apply(Preconditions.checkNotNull(message2));
+    };
   }
 
   @SuppressWarnings("unchecked")
