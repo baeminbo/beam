@@ -41,7 +41,7 @@ public class ProtoDynamicMessageSchema<T> implements Serializable {
   private ProtoDynamicMessageSchema(Descriptors.Descriptor descriptor, Schema schema) {
     this.schema = schema;
     this.toProto = ProtoBeamConverter.toProto(descriptor);
-    this.fromProto = ProtoBeamConverter.fromProto(schema);
+    this.fromProto = ProtoBeamConverter.toRow(schema);
   }
 
   /**
