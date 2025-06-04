@@ -17,10 +17,15 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.values.Row;
 import org.junit.Test;
@@ -225,6 +230,12 @@ public class ProtoBeamConverterTest {
           .addValue(new byte[0]) // bytes
           .build();
 
+  private static String printStacktrace(Throwable throwable) {
+    StringWriter stringWriter = new StringWriter();
+    throwable.printStackTrace(new PrintWriter(stringWriter));
+    return stringWriter.toString();
+  }
+
   @Test
   public void testToRow_Proto3OptionalPrimitive2Schema_OptionalPrimitive2DefaultMessage() {
     Row row =
@@ -267,10 +278,13 @@ public class ProtoBeamConverterTest {
 
   @Test
   public void testToRow_Proto3PrimitiveSchema_Proto3OptionalPrimitive2EmtpyMessage() {
-    Row row =
-        ProtoBeamConverter.toRow(PROTO3_PRIMITIVE_SCHEMA)
-            .apply(PROTO3_OPTIONAL_PRIMITIVE2_EMPTY_MESSAGE);
-    assertEquals(PROTO3_PRIMITIVE_DEFAULT_ROW, row);
+    RuntimeException thrown =
+        assertThrows(
+            RuntimeException.class,
+            () ->
+                ProtoBeamConverter.toRow(PROTO3_PRIMITIVE_SCHEMA)
+                    .apply(PROTO3_OPTIONAL_PRIMITIVE2_EMPTY_MESSAGE));
+    assertThat(printStacktrace(thrown), containsString("doesn't allow null"));
   }
 
   @Test

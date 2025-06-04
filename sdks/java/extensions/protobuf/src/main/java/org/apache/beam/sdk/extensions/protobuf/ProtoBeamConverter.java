@@ -17,6 +17,7 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -239,20 +240,14 @@ public class ProtoBeamConverter {
     @Override
     @Nullable
     B convert(@Nullable P protoValue) {
-      if (fieldType.getNullable() && protoValue == null) {
+      if (protoValue == null) {
         return null;
       }
 
-      if (protoValue != null) {
-        return convertNonNull(protoValue);
-      } else {
-        return defaultValue();
-      }
+      return convertNonNull(protoValue);
     }
 
     abstract @NonNull B convertNonNull(@NonNull P protoValue);
-
-    protected abstract @NonNull B defaultValue();
   }
 
   abstract static class BeamWrapConverter<P, U, B> extends BeamConverter<P, B> {
@@ -264,32 +259,26 @@ public class ProtoBeamConverter {
     @SuppressWarnings("unchecked")
     @Override
     public @Nullable B convert(@Nullable P protoValue) {
-      if (fieldType.getNullable() && protoValue == null) {
+      if (protoValue == null) {
         return null;
       }
 
-      if (protoValue != null) {
-        @NonNull U unwrappedProtoValue;
-        if (protoValue instanceof Message) {
-          // A google protobuf wrapper
-          Message protoWrapper = (Message) protoValue;
-          Descriptors.FieldDescriptor wrapperValueFieldDescriptor =
-              protoWrapper.getDescriptorForType().findFieldByNumber(1);
-          unwrappedProtoValue =
-              (@NonNull U)
-                  Preconditions.checkNotNull(protoWrapper.getField(wrapperValueFieldDescriptor));
-        } else {
-          unwrappedProtoValue = (@NonNull U) protoValue;
-        }
-        return convertNonNullWrapped(unwrappedProtoValue);
+      @NonNull U unwrappedProtoValue;
+      if (protoValue instanceof Message) {
+        // A google protobuf wrapper
+        Message protoWrapper = (Message) protoValue;
+        Descriptors.FieldDescriptor wrapperValueFieldDescriptor =
+            protoWrapper.getDescriptorForType().findFieldByNumber(1);
+        unwrappedProtoValue =
+            (@NonNull U)
+                Preconditions.checkNotNull(protoWrapper.getField(wrapperValueFieldDescriptor));
       } else {
-        return defaultValue();
+        unwrappedProtoValue = (@NonNull U) protoValue;
       }
+      return convertNonNullWrapped(unwrappedProtoValue);
     }
 
     abstract @NonNull B convertNonNullWrapped(@NonNull U protoValue);
-
-    protected abstract @Nullable B defaultValue();
   }
 
   abstract static class ProtoConverter<B, P> {
@@ -361,11 +350,6 @@ public class ProtoBeamConverter {
     protected byte @NonNull [] convertNonNullWrapped(@NonNull ByteString protoValue) {
       return protoValue.toByteArray();
     }
-
-    @Override
-    protected byte @NonNull [] defaultValue() {
-      return new byte[0];
-    }
   }
 
   static class BeamEnumerationConverter
@@ -382,11 +366,6 @@ public class ProtoBeamConverter {
         Descriptors.@NonNull EnumValueDescriptor protoValue) {
       int number = protoValue.getNumber();
       return enumerationType.toInputType(number);
-    }
-
-    @Override
-    protected EnumerationType.@NonNull Value defaultValue() {
-      return enumerationType.toInputType(0);
     }
   }
 
@@ -409,11 +388,6 @@ public class ProtoBeamConverter {
         beamList.add(Preconditions.checkNotNull(elementConverter.convert(element)));
       }
       return beamList;
-    }
-
-    @Override
-    protected @NonNull List<@NonNull B> defaultValue() {
-      return Collections.emptyList();
     }
   }
 
@@ -458,11 +432,6 @@ public class ProtoBeamConverter {
           });
       return beamMap;
     }
-
-    @Override
-    protected @NonNull Map<@NonNull BeamKeyT, @NonNull BeamValueT> defaultValue() {
-      return Collections.emptyMap();
-    }
   }
 
   static class BeamNanosDurationConverter extends BeamNoWrapConverter<Message, Duration> {
@@ -478,11 +447,6 @@ public class ProtoBeamConverter {
       long seconds = (long) protoValue.getField(secondsFieldDescriptor);
       int nanos = (int) protoValue.getField(nanosFieldDescriptor);
       return Duration.ofSeconds(seconds, nanos);
-    }
-
-    @Override
-    protected @NonNull Duration defaultValue() {
-      return Duration.ZERO;
     }
   }
 
@@ -500,11 +464,6 @@ public class ProtoBeamConverter {
       int nanos = (int) protoValue.getField(nanosFieldDescriptor);
       return Instant.ofEpochSecond(seconds, nanos);
     }
-
-    @Override
-    protected @NonNull Instant defaultValue() {
-      return Instant.EPOCH;
-    }
   }
 
   static class BeamPassThroughConverter<T> extends BeamWrapConverter<Object, T, T> {
@@ -519,11 +478,6 @@ public class ProtoBeamConverter {
     protected @NonNull T convertNonNullWrapped(@NonNull T protoValue) {
       Preconditions.checkArgument(protoValue.getClass().isInstance(defaultValue));
       return protoValue;
-    }
-
-    @Override
-    protected @NonNull T defaultValue() {
-      return defaultValue;
     }
   }
 
@@ -540,11 +494,6 @@ public class ProtoBeamConverter {
     @Override
     protected @NonNull Row convertNonNull(@NonNull Message protoValue) {
       return converter.apply(protoValue);
-    }
-
-    @Override
-    protected @NonNull Row defaultValue() {
-      return Row.withSchema(rowSchema).build();
     }
   }
 
@@ -567,13 +516,17 @@ public class ProtoBeamConverter {
             Preconditions.checkNotNull(descriptor.findFieldByName(field.getName()));
 
         @Nullable Object protoValue;
-        if (field.getType().getNullable()
-            && ProtoSchemaTranslator.isNullable(fieldDescriptor)
+        if (ProtoSchemaTranslator.isNullable(fieldDescriptor)
             && !message.hasField(fieldDescriptor)) {
+          if (!field.getType().getNullable()) {
+            throw new RuntimeException(
+                Strings.lenientFormat("Field type '%s' doesn't allow null", field.getType()));
+          }
           protoValue = null;
         } else {
           protoValue = message.getField(fieldDescriptor);
         }
+
         return converter.convert((P) protoValue);
       } catch (RuntimeException e) {
         throw new RuntimeException(
@@ -623,6 +576,14 @@ public class ProtoBeamConverter {
               e);
         }
       }
+
+      if (!field.getType().getNullable()) {
+        throw new RuntimeException(
+            Strings.lenientFormat(
+                "null is not allowed in field type '%s' for oneof '%s'",
+                field.getType(), field.getName()));
+      }
+
       return null;
     }
   }
