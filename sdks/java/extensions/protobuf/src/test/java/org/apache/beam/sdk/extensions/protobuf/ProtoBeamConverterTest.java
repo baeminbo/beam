@@ -23,10 +23,21 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.BoolValue;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.BytesValue;
+import com.google.protobuf.DoubleValue;
+import com.google.protobuf.FloatValue;
+import com.google.protobuf.Int32Value;
+import com.google.protobuf.Int64Value;
 import com.google.protobuf.Message;
+import com.google.protobuf.StringValue;
+import com.google.protobuf.UInt32Value;
+import com.google.protobuf.UInt64Value;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
+
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.logicaltypes.EnumerationType;
 import org.apache.beam.sdk.schemas.logicaltypes.OneOfType;
@@ -144,7 +155,6 @@ public class ProtoBeamConverterTest {
           .addValue(0.0) // double
           .build();
 
-
   private static final Schema PROTO3_OPTIONAL_PRIMITIVE2_SCHEMA =
       Schema.builder()
           .addField("primitive_double", Schema.FieldType.DOUBLE.withNullable(true))
@@ -223,13 +233,6 @@ public class ProtoBeamConverterTest {
           .addValue("") // string
           .addValue(new byte[0]) // bytes
           .build();
-  private static final Message PROTO3_ENUM_DEFAULT_MESSAGE =
-      Proto3SchemaMessages.EnumMessage.getDefaultInstance();
-  private static final Message PROTO3_ENUM_TWO_MESSAGE =
-      Proto3SchemaMessages.EnumMessage.newBuilder()
-          .setEnum(Proto3SchemaMessages.EnumMessage.Enum.TWO)
-          .build();
-
 
   private static final OneOfType PROTO3_SIMPLE_ONEOF_SCHEMA_GROUP =
       OneOfType.create(
@@ -250,8 +253,73 @@ public class ProtoBeamConverterTest {
       Proto3SchemaMessages.SimpleOneof.getDefaultInstance();
   private static final Message PROTO3_SIMPLE_ONEOF_INT32_MESSAGE =
       Proto3SchemaMessages.SimpleOneof.newBuilder().setInt32(13).build();
-
-
+  private static final Message PROTO3_ENUM_DEFAULT_MESSAGE =
+      Proto3SchemaMessages.EnumMessage.getDefaultInstance();
+  private static final Message PROTO3_ENUM_TWO_MESSAGE =
+      Proto3SchemaMessages.EnumMessage.newBuilder()
+          .setEnum(Proto3SchemaMessages.EnumMessage.Enum.TWO)
+          .build();
+  private static final Schema PROTO3_WRAP_PRIMITIVE_SCHEMA =
+      Schema.builder()
+          .addField("double", Schema.FieldType.DOUBLE.withNullable(true))
+          .addField("float", Schema.FieldType.FLOAT.withNullable(true))
+          .addField("int32", Schema.FieldType.INT32.withNullable(true))
+          .addField("int64", Schema.FieldType.INT64.withNullable(true))
+          .addField(
+              "uint32",
+              Schema.FieldType.logicalType(new ProtoSchemaLogicalTypes.UInt32()).withNullable(true))
+          .addField(
+              "uint64",
+              Schema.FieldType.logicalType(new ProtoSchemaLogicalTypes.UInt64()).withNullable(true))
+          .addField("bool", Schema.FieldType.BOOLEAN.withNullable(true))
+          .addField("string", Schema.FieldType.STRING.withNullable(true))
+          .addField("bytes", Schema.FieldType.BYTES.withNullable(true))
+          .build();
+  private static final Message PROTO3_WRAP_PRIMITIVE_EMPTY_MESSAGE =
+      Proto3SchemaMessages.WrapPrimitive.getDefaultInstance();
+  private static final Message PROTO3_WRAP_PRIMITIVE_DEFAULT_MESSAGE =
+      Proto3SchemaMessages.WrapPrimitive.newBuilder()
+          .setDouble(DoubleValue.getDefaultInstance())
+          .setFloat(FloatValue.getDefaultInstance())
+          .setInt32(Int32Value.getDefaultInstance())
+          .setInt64(Int64Value.getDefaultInstance())
+          .setUint32(UInt32Value.getDefaultInstance())
+          .setUint64(UInt64Value.getDefaultInstance())
+          .setBool(BoolValue.getDefaultInstance())
+          .setString(StringValue.getDefaultInstance())
+          .setBytes(BytesValue.getDefaultInstance())
+          .build();
+  private static final Row PROTO3_WRAP_PRIMITIVE_EMPTY_ROW =
+      Row.nullRow(PROTO3_WRAP_PRIMITIVE_SCHEMA);
+  private static final Row PROTO3_NOWRAP_PRIMITIVE_EMPTY_ROW = PROTO3_WRAP_PRIMITIVE_EMPTY_ROW;
+  private static final Row PROTO3_WRAP_PRIMITIVE_DEFAULT_ROW =
+      Row.withSchema(PROTO3_WRAP_PRIMITIVE_SCHEMA)
+          .addValue(0.0)
+          .addValue(0f)
+          .addValue(0)
+          .addValue(0L)
+          .addValue(0)
+          .addValue(0L)
+          .addValue(false)
+          .addValue("")
+          .addValue(new byte[0])
+          .build();
+  private static final Row PROTO3_NOWRAP_PRIMITIVE_DEFAULT_ROW = PROTO3_WRAP_PRIMITIVE_DEFAULT_ROW;
+  private static final Schema PROTO3_NOWRAP_PRIMITIVE_SCHEMA = PROTO3_WRAP_PRIMITIVE_SCHEMA;
+  private static final Message PROTO3_NOWRAP_PRIMITIVE_EMPTY_MESSAGE =
+      Proto3SchemaMessages.NoWrapPrimitive.getDefaultInstance();
+  private static final Message PROTO3_NOWRAP_PRIMITIVE_DEFAULT_MESSAGE =
+      Proto3SchemaMessages.NoWrapPrimitive.newBuilder()
+          .setDouble(0.0)
+          .setFloat(0f)
+          .setInt32(0)
+          .setInt64(0L)
+          .setUint32(0)
+          .setUint64(0L)
+          .setBool(false)
+          .setString("")
+          .setBytes(ByteString.EMPTY)
+          .build();
   private static EnumerationType PROTO3_ENUM_SCHEMA_ENUM =
       EnumerationType.create(ImmutableMap.of("ZERO", 0, "TWO", 2, "THREE", 3));
   private static final Schema PROTO3_ENUM_SCHEMA =
@@ -262,7 +330,6 @@ public class ProtoBeamConverterTest {
       Row.withSchema(PROTO3_ENUM_SCHEMA).addValue(PROTO3_ENUM_SCHEMA_ENUM.valueOf(0)).build();
   private static final Row PROTO3_ENUM_TWO_ROW =
       Row.withSchema(PROTO3_ENUM_SCHEMA).addValue(PROTO3_ENUM_SCHEMA_ENUM.valueOf("TWO")).build();
-
 
   private static String printStacktrace(Throwable throwable) {
     StringWriter stringWriter = new StringWriter();
@@ -284,6 +351,22 @@ public class ProtoBeamConverterTest {
         ProtoBeamConverter.toProto(Proto3SchemaMessages.EnumMessage.getDescriptor())
             .apply(PROTO3_ENUM_TWO_ROW);
     assertEquals(PROTO3_ENUM_TWO_MESSAGE, message);
+  }
+
+  @Test
+  public void testToProto_Proto3NoWrapPrimitiveDescriptor_Proto3NoWrapPrimitiveDefaultRow() {
+    Message message =
+        ProtoBeamConverter.toProto(Proto3SchemaMessages.NoWrapPrimitive.getDescriptor())
+            .apply(PROTO3_NOWRAP_PRIMITIVE_DEFAULT_ROW);
+    assertEquals(PROTO3_NOWRAP_PRIMITIVE_DEFAULT_MESSAGE, message);
+  }
+
+  @Test
+  public void testToProto_Proto3NoWrapPrimitiveDescriptor_Proto3NoWrapPrimitiveEmptyRow() {
+    Message message =
+        ProtoBeamConverter.toProto(Proto3SchemaMessages.NoWrapPrimitive.getDescriptor())
+            .apply(PROTO3_NOWRAP_PRIMITIVE_EMPTY_ROW);
+    assertEquals(PROTO3_NOWRAP_PRIMITIVE_EMPTY_MESSAGE, message);
   }
 
   @Test
@@ -361,6 +444,22 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
+  public void testToProto_Proto3WrapPrimitiveDescriptor_Proto3WrapPrimitiveDefaultRow() {
+    Message message =
+        ProtoBeamConverter.toProto(Proto3SchemaMessages.WrapPrimitive.getDescriptor())
+            .apply(PROTO3_WRAP_PRIMITIVE_DEFAULT_ROW);
+    assertEquals(PROTO3_WRAP_PRIMITIVE_DEFAULT_MESSAGE, message);
+  }
+
+  @Test
+  public void testToProto_Proto3WrapPrimitiveDescriptor_Proto3WrapPrimitiveEmptyRow() {
+    Message message =
+        ProtoBeamConverter.toProto(Proto3SchemaMessages.WrapPrimitive.getDescriptor())
+            .apply(PROTO3_WRAP_PRIMITIVE_EMPTY_ROW);
+    assertEquals(PROTO3_WRAP_PRIMITIVE_EMPTY_MESSAGE, message);
+  }
+
+  @Test
   public void testToRow_Proto3EnumSchema_Proto3EnumDefaultMessage() {
     Row row = ProtoBeamConverter.toRow(PROTO3_ENUM_SCHEMA).apply(PROTO3_ENUM_DEFAULT_MESSAGE);
     assertEquals(PROTO3_ENUM_DEFAULT_ROW, row);
@@ -370,6 +469,22 @@ public class ProtoBeamConverterTest {
   public void testToRow_Proto3EnumSchema_Proto3EnumTwoMessage() {
     Row row = ProtoBeamConverter.toRow(PROTO3_ENUM_SCHEMA).apply(PROTO3_ENUM_TWO_MESSAGE);
     assertEquals(PROTO3_ENUM_TWO_ROW, row);
+  }
+
+  @Test
+  public void testToRow_Proto3NoWrapPrimitiveSchema_Proto3NoWrapPrimitiveDefaultMessage() {
+    Row row =
+        ProtoBeamConverter.toRow(PROTO3_NOWRAP_PRIMITIVE_SCHEMA)
+            .apply(PROTO3_NOWRAP_PRIMITIVE_DEFAULT_MESSAGE);
+    assertEquals(PROTO3_NOWRAP_PRIMITIVE_DEFAULT_ROW, row);
+  }
+
+  @Test
+  public void testToRow_Proto3NoWrapPrimitiveSchema_Proto3NoWrapPrimitiveEmptyMessage() {
+    Row row =
+        ProtoBeamConverter.toRow(PROTO3_NOWRAP_PRIMITIVE_SCHEMA)
+            .apply(PROTO3_NOWRAP_PRIMITIVE_EMPTY_MESSAGE);
+    assertEquals(PROTO3_NOWRAP_PRIMITIVE_EMPTY_ROW, row);
   }
 
   @Test
@@ -444,5 +559,21 @@ public class ProtoBeamConverterTest {
         ProtoBeamConverter.toRow(PROTO3_SIMPLE_ONEOF_SCHEMA)
             .apply(PROTO3_SIMPLE_ONEOF_INT32_MESSAGE);
     assertEquals(PROTO3_SIMPLE_ONEOF_INT32_ROW, row);
+  }
+
+  @Test
+  public void testToRow_Proto3WrapPrimitiveSchema_Proto3WrapPrimitiveDefaultMessage() {
+    Row row =
+        ProtoBeamConverter.toRow(PROTO3_WRAP_PRIMITIVE_SCHEMA)
+            .apply(PROTO3_WRAP_PRIMITIVE_DEFAULT_MESSAGE);
+    assertEquals(PROTO3_WRAP_PRIMITIVE_DEFAULT_ROW, row);
+  }
+
+  @Test
+  public void testToRow_Proto3WrapPrimitiveSchema_Proto3WrapPrimitiveEmptyMessage() {
+    Row row =
+        ProtoBeamConverter.toRow(PROTO3_WRAP_PRIMITIVE_SCHEMA)
+            .apply(PROTO3_WRAP_PRIMITIVE_EMPTY_MESSAGE);
+    assertEquals(PROTO3_WRAP_PRIMITIVE_EMPTY_ROW, row);
   }
 }
