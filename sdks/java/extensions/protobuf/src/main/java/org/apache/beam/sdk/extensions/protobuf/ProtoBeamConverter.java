@@ -107,23 +107,23 @@ public class ProtoBeamConverter {
       case INT16:
         throw new UnsupportedOperationException();
       case INT32:
-        return new BeamPassThroughConverter<>(fieldType, 0);
+        return new BeamPassThroughConverter<>();
       case INT64:
-        return new BeamPassThroughConverter<>(fieldType, 0L);
+        return new BeamPassThroughConverter<>();
       case DECIMAL:
         throw new UnsupportedOperationException();
       case FLOAT:
-        return new BeamPassThroughConverter<>(fieldType, 0f);
+        return new BeamPassThroughConverter<>();
       case DOUBLE:
-        return new BeamPassThroughConverter<>(fieldType, 0.0);
+        return new BeamPassThroughConverter<>();
       case STRING:
-        return new BeamPassThroughConverter<>(fieldType, "");
+        return new BeamPassThroughConverter<>();
       case DATETIME:
         throw new UnsupportedOperationException();
       case BOOLEAN:
-        return new BeamPassThroughConverter<>(fieldType, false);
+        return new BeamPassThroughConverter<>();
       case BYTES:
-        return new BeamBytesConverter(fieldType);
+        return new BeamBytesConverter();
       case ARRAY:
       case ITERABLE:
         return new BeamListConverter<>(fieldType);
@@ -137,16 +137,15 @@ public class ProtoBeamConverter {
           case ProtoSchemaLogicalTypes.SInt32.IDENTIFIER:
           case ProtoSchemaLogicalTypes.Fixed32.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SFixed32.IDENTIFIER:
-            return new BeamPassThroughConverter<>(fieldType, 0);
           case ProtoSchemaLogicalTypes.UInt64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SInt64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.Fixed64.IDENTIFIER:
           case ProtoSchemaLogicalTypes.SFixed64.IDENTIFIER:
-            return new BeamPassThroughConverter<>(fieldType, 0L);
+            return new BeamPassThroughConverter<>();
           case NanosDuration.IDENTIFIER:
-            return new BeamNanosDurationConverter(fieldType);
+            return new BeamNanosDurationConverter();
           case NanosInstant.IDENTIFIER:
-            return new BeamNanosInstantConverter(fieldType);
+            return new BeamNanosInstantConverter();
           case EnumerationType.IDENTIFIER:
             return new BeamEnumerationConverter(fieldType);
           default:
@@ -223,20 +222,10 @@ public class ProtoBeamConverter {
   }
 
   abstract static class BeamConverter<P, B> {
-    protected final Schema.FieldType fieldType;
-
-    BeamConverter(Schema.FieldType fieldType) {
-      this.fieldType = fieldType;
-    }
-
     abstract @Nullable B convert(@Nullable P protoValue);
   }
 
   abstract static class BeamNoWrapConverter<P, B> extends BeamConverter<P, B> {
-    BeamNoWrapConverter(Schema.FieldType fieldType) {
-      super(fieldType);
-    }
-
     @Override
     @Nullable
     B convert(@Nullable P protoValue) {
@@ -251,10 +240,6 @@ public class ProtoBeamConverter {
   }
 
   abstract static class BeamWrapConverter<P, U, B> extends BeamConverter<P, B> {
-
-    BeamWrapConverter(Schema.FieldType fieldType) {
-      super(fieldType);
-    }
 
     @SuppressWarnings("unchecked")
     @Override
@@ -342,9 +327,6 @@ public class ProtoBeamConverter {
   }
 
   static class BeamBytesConverter extends BeamWrapConverter<Object, ByteString, byte[]> {
-    public BeamBytesConverter(Schema.FieldType fieldType) {
-      super(fieldType);
-    }
 
     @Override
     protected byte @NonNull [] convertNonNullWrapped(@NonNull ByteString protoValue) {
@@ -357,7 +339,6 @@ public class ProtoBeamConverter {
     private final EnumerationType enumerationType;
 
     BeamEnumerationConverter(Schema.FieldType fieldType) {
-      super(fieldType);
       enumerationType = fieldType.getLogicalType(EnumerationType.class);
     }
 
@@ -375,7 +356,6 @@ public class ProtoBeamConverter {
 
     @SuppressWarnings("unchecked")
     public BeamListConverter(Schema.FieldType fieldType) {
-      super(fieldType);
       elementConverter =
           (BeamConverter<P, B>)
               createBeamConverter(Preconditions.checkNotNull(fieldType.getCollectionElementType()));
@@ -399,7 +379,6 @@ public class ProtoBeamConverter {
 
     @SuppressWarnings("unchecked")
     public BeamMapConverter(Schema.FieldType fieldType) {
-      super(fieldType);
       keyConverter =
           (BeamConverter<ProtoKeyT, BeamKeyT>)
               createBeamConverter(Preconditions.checkNotNull(fieldType.getMapKeyType()));
@@ -435,9 +414,6 @@ public class ProtoBeamConverter {
   }
 
   static class BeamNanosDurationConverter extends BeamNoWrapConverter<Message, Duration> {
-    BeamNanosDurationConverter(Schema.FieldType fieldType) {
-      super(fieldType);
-    }
 
     @Override
     protected @NonNull Duration convertNonNull(@NonNull Message protoValue) {
@@ -451,9 +427,6 @@ public class ProtoBeamConverter {
   }
 
   static class BeamNanosInstantConverter extends BeamNoWrapConverter<Message, Instant> {
-    BeamNanosInstantConverter(Schema.FieldType fieldType) {
-      super(fieldType);
-    }
 
     @Override
     protected @NonNull Instant convertNonNull(@NonNull Message protoValue) {
@@ -467,16 +440,8 @@ public class ProtoBeamConverter {
   }
 
   static class BeamPassThroughConverter<T> extends BeamWrapConverter<Object, T, T> {
-    private final @NonNull T defaultValue;
-
-    public BeamPassThroughConverter(Schema.FieldType fieldType, @NonNull T defaultValue) {
-      super(fieldType);
-      this.defaultValue = defaultValue;
-    }
-
     @Override
     protected @NonNull T convertNonNullWrapped(@NonNull T protoValue) {
-      Preconditions.checkArgument(protoValue.getClass().isInstance(defaultValue));
       return protoValue;
     }
   }
@@ -486,7 +451,6 @@ public class ProtoBeamConverter {
     private final SerializableFunction<@NonNull Message, @NonNull Row> converter;
 
     public BeamRowConverter(Schema.FieldType fieldType) {
-      super(fieldType);
       rowSchema = Preconditions.checkNotNull(fieldType.getRowSchema());
       converter = toRow(rowSchema);
     }

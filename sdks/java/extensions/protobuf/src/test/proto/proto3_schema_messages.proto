@@ -146,6 +146,15 @@ message EnumMessage {
     Enum enum = 1;
 }
 
+message OptionalEnumMessage {
+  enum Enum {
+    ZERO = 0;
+    TWO  = 2;
+    THREE = 3;
+  }
+  optional Enum enum = 1;
+}
+
 message WktMessage {
     google.protobuf.DoubleValue double = 1;
     google.protobuf.FloatValue float = 2;
@@ -248,4 +257,11 @@ message OptionalPrimitive2 {
   optional bool primitive_bool = 13;
   optional string primitive_string = 14;
   optional bytes primitive_bytes = 15;
+}
+
+message SimpleOneof {
+  oneof group {
+    int32 int32 = 3;
+    string string = 4;
+  }
 }
