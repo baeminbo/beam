@@ -114,8 +114,16 @@ public class EnumerationType implements LogicalType<Value, Integer> {
     return valueOf(base);
   }
 
-  public Map<String, Integer> getValuesMap() {
+  public BiMap<String, Integer> getValuesMap() {
     return enumValues;
+  }
+
+  public @Nullable String getEnumName(int number) {
+    return enumValues.inverse().get(number);
+  }
+
+  public @Nullable Integer getEnumValue(String enumName) {
+    return enumValues.get(enumName);
   }
 
   public List<String> getValues() {

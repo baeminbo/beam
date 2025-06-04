@@ -17,6 +17,7 @@
  */
 package org.apache.beam.sdk.extensions.protobuf;
 
+import com.google.common.base.Strings;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -385,34 +386,39 @@ class ProtoSchemaTranslator {
     Schema.Options.Builder optionsBuilder = Schema.Options.builder();
     for (Map.Entry<FieldDescriptor, Object> entry : allFields.entrySet()) {
       FieldDescriptor fieldDescriptor = entry.getKey();
-      FieldType fieldType = beamFieldTypeFromProtoField(fieldDescriptor);
+      try {
+        FieldType fieldType = beamFieldTypeFromProtoField(fieldDescriptor);
 
-      switch (fieldType.getTypeName()) {
-        case BYTE:
-        case BYTES:
-        case INT16:
-        case INT32:
-        case INT64:
-        case DECIMAL:
-        case FLOAT:
-        case DOUBLE:
-        case STRING:
-        case BOOLEAN:
-        case LOGICAL_TYPE:
-        case ROW:
-        case ARRAY:
-        case ITERABLE:
-          @SuppressWarnings("unchecked")
-          ProtoBeamConverter.BeamConverter<Object, ?> beamConverter =
-              (ProtoBeamConverter.BeamConverter<Object, ?>)
-                  ProtoBeamConverter.createBeamConverter(fieldType);
-          Object value = Preconditions.checkNotNull(beamConverter.convert(entry.getValue()));
-          optionsBuilder.setOption(prefix + fieldDescriptor.getFullName(), fieldType, value);
-          break;
-        case MAP:
-        case DATETIME:
-        default:
-          throw new IllegalStateException("These datatypes are not possible in extentions.");
+        switch (fieldType.getTypeName()) {
+          case BYTE:
+          case BYTES:
+          case INT16:
+          case INT32:
+          case INT64:
+          case DECIMAL:
+          case FLOAT:
+          case DOUBLE:
+          case STRING:
+          case BOOLEAN:
+          case LOGICAL_TYPE:
+          case ROW:
+          case ARRAY:
+          case ITERABLE:
+            @SuppressWarnings("unchecked")
+            ProtoBeamConverter.BeamConverter<Object, ?> beamConverter =
+                (ProtoBeamConverter.BeamConverter<Object, ?>)
+                    ProtoBeamConverter.createBeamConverter(fieldType);
+            Object value = Preconditions.checkNotNull(beamConverter.convert(entry.getValue()));
+            optionsBuilder.setOption(prefix + fieldDescriptor.getFullName(), fieldType, value);
+            break;
+          case MAP:
+          case DATETIME:
+          default:
+            throw new IllegalStateException("These datatypes are not possible in extentions.");
+        }
+      } catch (RuntimeException e) {
+        throw new RuntimeException(
+            Strings.lenientFormat("Failed to parse option for %s", fieldDescriptor.getName()), e);
       }
     }
     return optionsBuilder;

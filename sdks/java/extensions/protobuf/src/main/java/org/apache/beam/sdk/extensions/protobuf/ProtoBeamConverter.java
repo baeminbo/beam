@@ -41,8 +41,14 @@ import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Precondit
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+/**
+ * Provides converts between Protobuf Message and Beam Row.
+ *
+ * <p>Read <a href="https://s.apache.org/beam-protobuf">https://s.apache.org/beam-protobuf</a>
+ */
 public class ProtoBeamConverter {
 
+  /** Returns a conversion method from Beam Row to Protobuf Message. */
   public static SerializableFunction<@NonNull Row, @NonNull Message> toProto(
       Descriptors.Descriptor descriptor) {
     Map<String, ToProtoSetter<?>> toProtos = new LinkedHashMap<>();
@@ -59,17 +65,20 @@ public class ProtoBeamConverter {
       }
     }
     return row -> {
+      Schema schema = row.getSchema();
       DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor);
       for (Map.Entry<String, ToProtoSetter<?>> entry : toProtos.entrySet()) {
         String fieldName = entry.getKey();
         @SuppressWarnings("unchecked")
         ToProtoSetter<Object> converter = (ToProtoSetter<Object>) entry.getValue();
-        converter.setToProto(message, row.getValue(fieldName));
+        converter.setToProto(
+            message, schema.getField(fieldName).getType(), row.getValue(fieldName));
       }
       return message.build();
     };
   }
 
+  /** Returns a conversion method from Protobuf Message to Beam Row. */
   public static SerializableFunction<@NonNull Message, @NonNull Row> toRow(Schema schema) {
     List<FromProtoGetter<?>> toBeams = new ArrayList<>();
     for (Schema.Field field : schema.getFields()) {
@@ -209,7 +218,7 @@ public class ProtoBeamConverter {
   }
 
   interface ToProtoSetter<B> {
-    void setToProto(Message.Builder message, B beamFieldValue);
+    void setToProto(Message.Builder message, Schema.FieldType fieldType, B beamFieldValue);
   }
 
   abstract static class BeamConverter<P, B> {
@@ -761,7 +770,7 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    public void setToProto(Message.Builder message, B beamFieldValue) {
+    public void setToProto(Message.Builder message, Schema.FieldType fieldType, B beamFieldValue) {
       try {
         @Nullable P protoValue = converter.convert(beamFieldValue);
         if (protoValue != null) {
@@ -778,31 +787,40 @@ public class ProtoBeamConverter {
 
   static class ToProtoOneOfSetter implements ToProtoSetter<OneOfType.Value> {
     private final Descriptors.OneofDescriptor oneofDescriptor;
-    private final Map<Integer, ToProtoFieldSetter<Object, Object>> protoSetters;
+    private final Map<String, ToProtoFieldSetter<Object, Object>> protoSetters;
 
     ToProtoOneOfSetter(Descriptors.OneofDescriptor oneofDescriptor) {
       this.oneofDescriptor = oneofDescriptor;
       this.protoSetters = createConverters(oneofDescriptor.getFields());
     }
 
-    private static Map<Integer, ToProtoFieldSetter<Object, Object>> createConverters(
+    private static Map<String, ToProtoFieldSetter<Object, Object>> createConverters(
         List<Descriptors.FieldDescriptor> fieldDescriptors) {
-      Map<Integer, ToProtoFieldSetter<Object, Object>> converters = new LinkedHashMap<>();
+      Map<String, ToProtoFieldSetter<Object, Object>> converters = new LinkedHashMap<>();
       for (Descriptors.FieldDescriptor fieldDescriptor : fieldDescriptors) {
         Preconditions.checkState(!fieldDescriptor.isRepeated());
-        converters.put(fieldDescriptor.getNumber(), new ToProtoFieldSetter<>(fieldDescriptor));
+        converters.put(fieldDescriptor.getName(), new ToProtoFieldSetter<>(fieldDescriptor));
       }
       return converters;
     }
 
     @Override
-    public void setToProto(Message.Builder message, OneOfType.Value oneOfValue) {
+    public void setToProto(
+        Message.Builder message, Schema.FieldType fieldType, OneOfType.Value oneOfValue) {
       if (oneOfValue != null) {
+        OneOfType oneOfType = fieldType.getLogicalType(OneOfType.class);
         int number = oneOfValue.getCaseType().getValue();
         try {
+          String subFieldName =
+              Preconditions.checkNotNull(oneOfType.getCaseEnumType().getEnumName(number));
+
           ToProtoFieldSetter<Object, Object> protoSetter =
-              Preconditions.checkNotNull(protoSetters.get(number));
-          protoSetter.setToProto(message, oneOfValue.getValue());
+              Preconditions.checkNotNull(
+                  protoSetters.get(subFieldName), "No setter for field '%s'", subFieldName);
+          protoSetter.setToProto(
+              message,
+              oneOfType.getOneOfSchema().getField(subFieldName).getType(),
+              oneOfValue.getValue());
         } catch (RuntimeException e) {
           throw new RuntimeException(
               String.format(
