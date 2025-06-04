@@ -226,7 +226,7 @@ public class ProtoBeamConverterTest {
           .build();
 
   @Test
-  public void testFromProto_Proto3OptionalPrimitive2Schema_OptionalPrimitive2DefaultMessage() {
+  public void testToRow_Proto3OptionalPrimitive2Schema_OptionalPrimitive2DefaultMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_OPTIONAL_PRIMITIVE2_SCHEMA)
             .apply(PROTO3_OPTIONAL_PRIMITIVE2_DEFAULT_MESSAGE);
@@ -234,7 +234,7 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
-  public void testFromProto_Proto3OptionalPrimitive2Schema_OptionalPrimitive2EmptyMessage() {
+  public void testToRow_Proto3OptionalPrimitive2Schema_OptionalPrimitive2EmptyMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_OPTIONAL_PRIMITIVE2_SCHEMA)
             .apply(PROTO3_OPTIONAL_PRIMITIVE2_EMPTY_MESSAGE);
@@ -242,7 +242,7 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
-  public void testFromProto_Proto3OptionalPrimitive2Schema_Proto3PrimitiveDefaultMessage() {
+  public void testToRow_Proto3OptionalPrimitive2Schema_Proto3PrimitiveDefaultMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_OPTIONAL_PRIMITIVE2_SCHEMA)
             .apply(PROTO3_PRIMITIVE_DEFAULT_MESSAGE);
@@ -250,7 +250,7 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
-  public void testFromProto_Proto3PrimitiveSchemaShuffle_PrimitiveDefaultMessage() {
+  public void testToRow_Proto3PrimitiveSchemaShuffle_PrimitiveDefaultMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_PRIMITIVE_SCHEMA_SHUFFLED)
             .apply(PROTO3_PRIMITIVE_DEFAULT_MESSAGE);
@@ -258,7 +258,7 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
-  public void testFromProto_Proto3PrimitiveSchema_Proto3OptionalPrimitive2DefaultMessage() {
+  public void testToRow_Proto3PrimitiveSchema_Proto3OptionalPrimitive2DefaultMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_PRIMITIVE_SCHEMA)
             .apply(PROTO3_OPTIONAL_PRIMITIVE2_DEFAULT_MESSAGE);
@@ -266,7 +266,7 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
-  public void testFromProto_Proto3PrimitiveSchema_Proto3OptionalPrimitive2EmtpyMessage() {
+  public void testToRow_Proto3PrimitiveSchema_Proto3OptionalPrimitive2EmtpyMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_PRIMITIVE_SCHEMA)
             .apply(PROTO3_OPTIONAL_PRIMITIVE2_EMPTY_MESSAGE);
@@ -274,7 +274,7 @@ public class ProtoBeamConverterTest {
   }
 
   @Test
-  public void testFromProto_Proto3PrimitiveSchema_Proto3PrimitiveDefaultMessage() {
+  public void testToRow_Proto3PrimitiveSchema_Proto3PrimitiveDefaultMessage() {
     Row row =
         ProtoBeamConverter.toRow(PROTO3_PRIMITIVE_SCHEMA).apply(PROTO3_PRIMITIVE_DEFAULT_MESSAGE);
     assertEquals(PROTO3_PRIMITIVE_DEFAULT_ROW, row);
