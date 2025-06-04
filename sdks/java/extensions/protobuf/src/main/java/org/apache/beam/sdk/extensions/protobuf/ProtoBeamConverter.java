@@ -24,6 +24,14 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.logicaltypes.EnumerationType;
 import org.apache.beam.sdk.schemas.logicaltypes.NanosDuration;
@@ -35,15 +43,6 @@ import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Precondit
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 public class ProtoBeamConverter {
 
@@ -267,14 +266,6 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    public void setToProto(Message.Builder message, B beamFieldValue) {
-      Object protoValue = convert(beamFieldValue);
-      if (protoValue != null) {
-        message.setField(fieldDescriptor, protoValue);
-      }
-    }
-
-    @Override
     @Nullable
     public Object convert(@Nullable B beamValue) {
       if (ProtoSchemaTranslator.isNullable(fieldDescriptor) && beamValue == null) {
@@ -295,22 +286,22 @@ public class ProtoBeamConverter {
       }
     }
 
+    abstract @NonNull P convertNonNullUnwrapped(@NonNull B beamValue);
+
     abstract @NonNull P defaultValue();
 
-    abstract @NonNull P convertNonNullUnwrapped(@NonNull B beamValue);
+    @Override
+    public void setToProto(Message.Builder message, B beamFieldValue) {
+      Object protoValue = convert(beamFieldValue);
+      if (protoValue != null) {
+        message.setField(fieldDescriptor, protoValue);
+      }
+    }
   }
 
   abstract static class ToProtoUnwrappableSetter<B, P> extends ToProtoFieldSetter<B> {
     ToProtoUnwrappableSetter(Descriptors.FieldDescriptor fieldDescriptor) {
       super(fieldDescriptor);
-    }
-
-    @Override
-    public void setToProto(Message.Builder message, B beamFieldValue) {
-      @Nullable P protoValue = convert(beamFieldValue);
-      if (protoValue != null) {
-        message.setField(fieldDescriptor, protoValue);
-      }
     }
 
     @Override
@@ -325,9 +316,17 @@ public class ProtoBeamConverter {
       }
     }
 
+    abstract @Nullable P convertNonNull(@NonNull B beamValue);
+
     abstract P defaultValue();
 
-    abstract @Nullable P convertNonNull(@NonNull B beamValue);
+    @Override
+    public void setToProto(Message.Builder message, B beamFieldValue) {
+      @Nullable P protoValue = convert(beamFieldValue);
+      if (protoValue != null) {
+        message.setField(fieldDescriptor, protoValue);
+      }
+    }
   }
 
   static class ToProtoPassThroughSetter<T> extends ToProtoWrappableSetter<T, T> {
@@ -341,15 +340,15 @@ public class ProtoBeamConverter {
 
     @Override
     @NonNull
-    T defaultValue() {
-      return defaultValue;
+    T convertNonNullUnwrapped(@NonNull T beamValue) {
+      Preconditions.checkArgument(beamValue.getClass().isInstance(defaultValue));
+      return beamValue;
     }
 
     @Override
     @NonNull
-    T convertNonNullUnwrapped(@NonNull T beamValue) {
-      Preconditions.checkArgument(beamValue.getClass().isInstance(defaultValue));
-      return beamValue;
+    T defaultValue() {
+      return defaultValue;
     }
   }
 
@@ -360,14 +359,14 @@ public class ProtoBeamConverter {
 
     @Override
     @NonNull
-    ByteString defaultValue() {
-      return ByteString.EMPTY;
+    ByteString convertNonNullUnwrapped(byte @NonNull [] beamValue) {
+      return ByteString.copyFrom(beamValue);
     }
 
     @Override
     @NonNull
-    ByteString convertNonNullUnwrapped(byte @NonNull [] beamValue) {
-      return ByteString.copyFrom(beamValue);
+    ByteString defaultValue() {
+      return ByteString.EMPTY;
     }
   }
 
@@ -382,12 +381,6 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    @NonNull
-    List<@NonNull Object> defaultValue() {
-      return Collections.emptyList();
-    }
-
-    @Override
     @Nullable
     List<@NonNull Object> convertNonNull(@NonNull Iterable<@NonNull B> beamValue) {
       ImmutableList.Builder<@NonNull Object> builder = ImmutableList.builder();
@@ -396,6 +389,12 @@ public class ProtoBeamConverter {
         builder.add(protoElement);
       }
       return builder.build();
+    }
+
+    @Override
+    @NonNull
+    List<@NonNull Object> defaultValue() {
+      return Collections.emptyList();
     }
   }
 
@@ -418,11 +417,6 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    List<@NonNull Message> defaultValue() {
-      return Collections.emptyList();
-    }
-
-    @Override
     @Nullable
     List<@NonNull Message> convertNonNull(@NonNull Map<@Nullable BK, @Nullable BV> beamValue) {
       ImmutableList.Builder<Message> protoList = ImmutableList.builder();
@@ -437,6 +431,11 @@ public class ProtoBeamConverter {
           });
       return protoList.build();
     }
+
+    @Override
+    List<@NonNull Message> defaultValue() {
+      return Collections.emptyList();
+    }
   }
 
   static class ToProtoEnumSetter
@@ -446,14 +445,14 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    Descriptors.EnumValueDescriptor defaultValue() {
-      return fieldDescriptor.getEnumType().findValueByNumber(0);
-    }
-
-    @Override
     Descriptors.@NonNull EnumValueDescriptor convertNonNull(
         EnumerationType.@NonNull Value beamValue) {
       return fieldDescriptor.getEnumType().findValueByNumber(beamValue.getValue());
+    }
+
+    @Override
+    Descriptors.EnumValueDescriptor defaultValue() {
+      return fieldDescriptor.getEnumType().findValueByNumber(0);
     }
   }
 
@@ -468,14 +467,14 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    Message defaultValue() {
-      return DynamicMessage.newBuilder(descriptor).build();
-    }
-
-    @Override
     @NonNull
     Message convertNonNull(@NonNull Row beamValue) {
       return converter.apply(beamValue);
+    }
+
+    @Override
+    Message defaultValue() {
+      return DynamicMessage.newBuilder(descriptor).build();
     }
   }
 
@@ -515,16 +514,16 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    com.google.protobuf.@NonNull Duration defaultValue() {
-      return com.google.protobuf.Duration.getDefaultInstance();
-    }
-
-    @Override
     com.google.protobuf.@NonNull Duration convertNonNull(@NonNull Duration beamValue) {
       return com.google.protobuf.Duration.newBuilder()
           .setSeconds(beamValue.getSeconds())
           .setNanos(beamValue.getNano())
           .build();
+    }
+
+    @Override
+    com.google.protobuf.@NonNull Duration defaultValue() {
+      return com.google.protobuf.Duration.getDefaultInstance();
     }
   }
 
@@ -534,17 +533,17 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    com.google.protobuf.Timestamp defaultValue() {
-      return com.google.protobuf.Timestamp.getDefaultInstance();
-    }
-
-    @Override
     @NonNull
     Timestamp convertNonNull(@NonNull Instant beamValue) {
       return com.google.protobuf.Timestamp.newBuilder()
           .setSeconds(beamValue.getEpochSecond())
           .setNanos(beamValue.getNano())
           .build();
+    }
+
+    @Override
+    com.google.protobuf.Timestamp defaultValue() {
+      return com.google.protobuf.Timestamp.getDefaultInstance();
     }
   }
 
@@ -590,9 +589,9 @@ public class ProtoBeamConverter {
       }
     }
 
-    protected abstract @Nullable B defaultValue();
-
     abstract @NonNull B convertNonNullWrapped(@NonNull U protoValue);
+
+    protected abstract @Nullable B defaultValue();
   }
 
   abstract static class BeamUnwrappableConverter<P, B> extends BeamConverter<P, B> {
@@ -614,9 +613,9 @@ public class ProtoBeamConverter {
       }
     }
 
-    protected abstract @NonNull B defaultValue();
-
     abstract @NonNull B convertNonNull(@NonNull P protoValue);
+
+    protected abstract @NonNull B defaultValue();
   }
 
   static class BeamBytesConverter extends BeamWrappableConverter<Object, ByteString, byte[]> {
@@ -625,13 +624,13 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    protected byte @NonNull [] defaultValue() {
-      return new byte[0];
+    protected byte @NonNull [] convertNonNullWrapped(@NonNull ByteString protoValue) {
+      return protoValue.toByteArray();
     }
 
     @Override
-    protected byte @NonNull [] convertNonNullWrapped(@NonNull ByteString protoValue) {
-      return protoValue.toByteArray();
+    protected byte @NonNull [] defaultValue() {
+      return new byte[0];
     }
   }
 
@@ -648,17 +647,17 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    protected @NonNull List<@NonNull B> defaultValue() {
-      return Collections.emptyList();
-    }
-
-    @Override
     protected @NonNull List<@NonNull B> convertNonNull(@NonNull List<@NonNull P> protoList) {
       List<@NonNull B> beamList = new ArrayList<>();
       for (@NonNull P element : protoList) {
         beamList.add(Preconditions.checkNotNull(elementConverter.convert(element)));
       }
       return beamList;
+    }
+
+    @Override
+    protected @NonNull List<@NonNull B> defaultValue() {
+      return Collections.emptyList();
     }
   }
 
@@ -676,11 +675,6 @@ public class ProtoBeamConverter {
       valueConverter =
           (BeamConverter<PV, BV>)
               createBeamConverter(Preconditions.checkNotNull(fieldType.getMapValueType()));
-    }
-
-    @Override
-    protected @NonNull Map<@NonNull BK, @NonNull BV> defaultValue() {
-      return Collections.emptyMap();
     }
 
     @SuppressWarnings("unchecked")
@@ -706,6 +700,11 @@ public class ProtoBeamConverter {
           });
       return beamMap;
     }
+
+    @Override
+    protected @NonNull Map<@NonNull BK, @NonNull BV> defaultValue() {
+      return Collections.emptyMap();
+    }
   }
 
   static class BeamRowConverter extends BeamUnwrappableConverter<Message, Row> {
@@ -719,13 +718,13 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    protected @NonNull Row defaultValue() {
-      return Row.withSchema(rowSchema).build();
+    protected @NonNull Row convertNonNull(@NonNull Message protoValue) {
+      return converter.apply(protoValue);
     }
 
     @Override
-    protected @NonNull Row convertNonNull(@NonNull Message protoValue) {
-      return converter.apply(protoValue);
+    protected @NonNull Row defaultValue() {
+      return Row.withSchema(rowSchema).build();
     }
   }
 
@@ -738,25 +737,20 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    protected @NonNull T defaultValue() {
-      return defaultValue;
-    }
-
-    @Override
     protected @NonNull T convertNonNullWrapped(@NotNull T protoValue) {
       Preconditions.checkArgument(protoValue.getClass().isInstance(defaultValue));
       return protoValue;
+    }
+
+    @Override
+    protected @NonNull T defaultValue() {
+      return defaultValue;
     }
   }
 
   static class BeamNanosDurationConverter extends BeamUnwrappableConverter<Message, Duration> {
     BeamNanosDurationConverter(Schema.FieldType fieldType) {
       super(fieldType);
-    }
-
-    @Override
-    protected @NonNull Duration defaultValue() {
-      return Duration.ZERO;
     }
 
     @Override
@@ -768,16 +762,16 @@ public class ProtoBeamConverter {
       int nanos = (int) protoValue.getField(nanosFieldDescriptor);
       return Duration.ofSeconds(seconds, nanos);
     }
+
+    @Override
+    protected @NonNull Duration defaultValue() {
+      return Duration.ZERO;
+    }
   }
 
   static class BeamNanosInstantConverter extends BeamUnwrappableConverter<Message, Instant> {
     BeamNanosInstantConverter(Schema.FieldType fieldType) {
       super(fieldType);
-    }
-
-    @Override
-    protected @NonNull Instant defaultValue() {
-      return Instant.EPOCH;
     }
 
     @Override
@@ -788,6 +782,11 @@ public class ProtoBeamConverter {
       long seconds = (long) protoValue.getField(secondsFieldDescriptor);
       int nanos = (int) protoValue.getField(nanosFieldDescriptor);
       return Instant.ofEpochSecond(seconds, nanos);
+    }
+
+    @Override
+    protected @NonNull Instant defaultValue() {
+      return Instant.EPOCH;
     }
   }
 
@@ -801,15 +800,15 @@ public class ProtoBeamConverter {
     }
 
     @Override
-    protected EnumerationType.@NonNull Value defaultValue() {
-      return enumerationType.toInputType(0);
-    }
-
-    @Override
     protected EnumerationType.@NonNull Value convertNonNull(
         Descriptors.@NonNull EnumValueDescriptor protoValue) {
       int number = protoValue.getNumber();
       return enumerationType.toInputType(number);
+    }
+
+    @Override
+    protected EnumerationType.@NonNull Value defaultValue() {
+      return enumerationType.toInputType(0);
     }
   }
 
