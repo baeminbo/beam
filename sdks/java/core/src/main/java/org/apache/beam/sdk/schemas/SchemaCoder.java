@@ -35,6 +35,7 @@ import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.util.SerializableUtils;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Preconditions;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -118,7 +119,13 @@ public class SchemaCoder<T> extends CustomCoder<T> {
 
   @Override
   public void encode(T value, OutputStream outStream) throws IOException {
-    getDelegateCoder().encode(toRowFunction.apply(value), outStream);
+    Row row = toRowFunction.apply(value);
+    Preconditions.checkArgument(
+        row.getSchema().assignableTo(schema),
+        "Cannot assign row schema to coder schema. row: %s, coder: %s",
+        row.getSchema(),
+        schema);
+    getDelegateCoder().encode(row, outStream);
   }
 
   @Override
