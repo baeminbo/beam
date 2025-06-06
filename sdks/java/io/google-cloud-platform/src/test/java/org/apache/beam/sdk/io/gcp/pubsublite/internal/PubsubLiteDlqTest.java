@@ -551,7 +551,12 @@ public class PubsubLiteDlqTest {
     PCollection<SequencedMessage> input = p.apply(Create.of(INPUT_MESSAGES));
     PCollectionTuple output =
         input.apply(
-            ParDo.of(new ErrorFn("Read-Error-Counter", protoValueMapper, errorSchema, Boolean.TRUE))
+            ParDo.of(
+                    new ErrorFn(
+                        "Read-Error-Counter",
+                        bytes -> protoValueMapper.apply(bytes).applySchema(beamAttributeSchema),
+                        errorSchema,
+                        Boolean.TRUE))
                 .withOutputTags(OUTPUT_TAG, TupleTagList.of(ERROR_TAG)));
 
     output.get(OUTPUT_TAG).setRowSchema(beamAttributeSchema);
