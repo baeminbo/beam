@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -39,6 +40,7 @@ import org.apache.beam.sdk.schemas.Factory;
 import org.apache.beam.sdk.schemas.FieldAccessDescriptor;
 import org.apache.beam.sdk.schemas.FieldValueGetter;
 import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.Schema.Field;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
 import org.apache.beam.sdk.schemas.Schema.TypeName;
 import org.apache.beam.sdk.schemas.SchemaUtils;
@@ -47,6 +49,8 @@ import org.apache.beam.sdk.values.RowUtils.FieldOverride;
 import org.apache.beam.sdk.values.RowUtils.FieldOverrides;
 import org.apache.beam.sdk.values.RowUtils.RowFieldMatcher;
 import org.apache.beam.sdk.values.RowUtils.RowPosition;
+import org.apache.beam.vendor.grpc.v1p69p0.com.google.common.base.Strings;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Preconditions;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Lists;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -943,5 +947,123 @@ public abstract class Row implements Serializable {
               return (Object) getValue(field.getName());
             })
         .collect(toRow(getSchema().toCamelCase()));
+  }
+
+  /**
+   * Creates a {@link Row} with the new {@link Schema}.
+   *
+   * <p>The new schema must match the original on a field-for-field basis, where each field's
+   * <b>name</b> and <b>type</b> must be identical. The <b>order</b> and <b>nullability</b> of the
+   * fields are not considered in this comparison. Despite this, you cannot pass a {@code null}
+   * value to a field that is non-nullable in the new schema; doing so will cause a {@link Row}
+   * build error.
+   */
+  public @NonNull Row applySchema(@NonNull Schema newSchema) {
+    Preconditions.checkArgument(
+        schema.getFieldCount() == newSchema.getFieldCount(),
+        "Schema field count mismatch. thisSchema: %s, newSchema: %s",
+        schema,
+        newSchema);
+    return newSchema.getFields().stream()
+        .map(
+            newField -> {
+              Preconditions.checkArgument(
+                  schema.hasField(newField.getName()),
+                  "Cannot find field '%s' in current schema. thisSchema: %s, newSchema: %s",
+                  newField.getName(),
+                  schema,
+                  newSchema);
+
+              Field currentField = schema.getField(newField.getName());
+              try {
+                @Nullable Object fieldValue = getValue(currentField.getName());
+                return applyFieldType(currentField.getType(), newField.getType(), fieldValue);
+              } catch (RuntimeException e) {
+                throw new IllegalArgumentException(
+                    Strings.lenientFormat(
+                        "Failed to apply new field '%s'; thisSchema: %s, newSchema: %s",
+                        newField, schema, newSchema),
+                    e);
+              }
+            })
+        .collect(toRow(newSchema));
+  }
+
+  private static @Nullable Object applyFieldType(
+      FieldType currentFieldType, FieldType newFieldType, @Nullable Object value) {
+    Preconditions.checkArgument(
+        currentFieldType.getTypeName() == newFieldType.getTypeName(),
+        "Field type name mismatch. currentFieldType: %s, newFieldType: %s",
+        currentFieldType,
+        newFieldType);
+
+    if (value == null) {
+      return null;
+    }
+
+    switch (currentFieldType.getTypeName()) {
+      case BYTE:
+      case INT16:
+      case INT32:
+      case INT64:
+      case DECIMAL:
+      case FLOAT:
+      case DOUBLE:
+      case STRING:
+      case DATETIME:
+      case BOOLEAN:
+      case BYTES:
+        return value;
+      case ARRAY:
+      case ITERABLE:
+        @SuppressWarnings("unchecked")
+        List<Object> elements = (List<Object>) value;
+        List<Object> newElements = new ArrayList<>();
+        for (Object element : elements) {
+          newElements.add(
+              applyFieldType(
+                  currentFieldType.getCollectionElementType(),
+                  newFieldType.getCollectionElementType(),
+                  element));
+        }
+        return newElements;
+      case MAP:
+        FieldType keyType = currentFieldType.getMapKeyType();
+        FieldType valueTypel = currentFieldType.getMapValueType();
+        FieldType newKeyType = newFieldType.getMapKeyType();
+        FieldType newValueType = newFieldType.getMapValueType();
+
+        @SuppressWarnings("unchecked")
+        Map<Object, Object> map = (Map<Object, Object>) value;
+        Map<Object, Object> newMap = new LinkedHashMap<>();
+        map.forEach(
+            (rowKey, rowValue) ->
+                newMap.put(
+                    applyFieldType(keyType, newKeyType, rowKey),
+                    applyFieldType(valueTypel, newValueType, rowValue)));
+        return newMap;
+      case ROW:
+        return ((Row) value).applySchema(Preconditions.checkNotNull(newFieldType.getRowSchema()));
+      case LOGICAL_TYPE:
+        @SuppressWarnings("unchecked")
+        Schema.LogicalType<Object, Object> logicalType =
+            (Schema.LogicalType<Object, Object>)
+                Preconditions.checkNotNull(currentFieldType.getLogicalType());
+        @SuppressWarnings("unchecked")
+        Schema.LogicalType<Object, Object> newLogicalType =
+            (Schema.LogicalType<Object, Object>)
+                Preconditions.checkNotNull(newFieldType.getLogicalType());
+        Preconditions.checkNotNull(
+            logicalType.getIdentifier().equals(newLogicalType.getIdentifier()),
+            "Logical type identifier mismatch: logicalType: %s, newLogicalType: %s",
+            logicalType.getIdentifier(),
+            newLogicalType.getIdentifier());
+        Object baesValue = logicalType.toBaseType(value);
+        Object newBaseValue =
+            applyFieldType(logicalType.getBaseType(), newLogicalType.getBaseType(), baesValue);
+        return newLogicalType.toInputType(newBaseValue);
+      default:
+        throw new RuntimeException("Unsupported field type: " + currentFieldType.getTypeName());
+    }
   }
 }

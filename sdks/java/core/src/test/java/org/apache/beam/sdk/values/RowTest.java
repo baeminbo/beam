@@ -23,11 +23,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -895,5 +897,334 @@ public class RowTest {
 
     assertEquals(expectedCamelCaseInnerRow, row.toCamelCase().getRow("myRowField"));
     assertEquals(expectedCamelCaseRow, row.toCamelCase());
+  }
+
+  @Test
+  public void testApplySchema_Simple_Success() {
+    Schema fromSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32.withNullable(true))
+            .addField("string", FieldType.STRING.withNullable(true))
+            .build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(3).addValue("foo").build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING.withNullable(true))
+            .addField("int32", FieldType.INT32.withNullable(true))
+            .build();
+
+    Row toRow = Row.withSchema(toSchema).addValue("foo").addValue(3).build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_Map_Success_Default() {
+    Schema fromSchema =
+        Schema.builder()
+            .addField("map", FieldType.map(FieldType.INT32, FieldType.STRING).withNullable(true))
+            .build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(new HashMap<>()).build();
+
+    Schema toSchema =
+        Schema.builder().addField("map", FieldType.map(FieldType.INT32, FieldType.STRING)).build();
+
+    Row toRow = Row.withSchema(toSchema).addValue(Collections.emptyMap()).build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_MapValueNested_Success_NonNull() {
+    Schema fromNestedSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING)
+            .build();
+
+    Schema fromSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.INT32, FieldType.row(fromNestedSchema)).withNullable(true))
+            .build();
+
+    Row fromRow =
+        Row.withSchema(fromSchema)
+            .addValue(
+                ImmutableMap.of(10, Row.withSchema(fromNestedSchema).addValues(10, "ten").build()))
+            .build();
+
+    Schema toNestedSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING)
+            .addField("int32", FieldType.INT32)
+            .build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.INT32, FieldType.row(toNestedSchema)).withNullable(true))
+            .build();
+
+    Row toRow =
+        Row.withSchema(toSchema)
+            .addValue(
+                ImmutableMap.of(10, Row.withSchema(toNestedSchema).addValues("ten", 10).build()))
+            .build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_MapValueNested_Success_Null() {
+    Schema fromNestedSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING)
+            .build();
+
+    Schema fromSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.INT32, FieldType.row(fromNestedSchema).withNullable(true))
+                    .withNullable(true))
+            .build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(null).build();
+
+    Schema toNestedSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING)
+            .addField("int32", FieldType.INT32)
+            .build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.INT32, FieldType.row(toNestedSchema).withNullable(true))
+                    .withNullable(true))
+            .build();
+
+    Row toRow = Row.withSchema(toSchema).addValue(null).build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_MapValueNested_Success_NullValueNested() {
+    Schema fromNestedSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING)
+            .build();
+
+    Schema fromSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.INT32, FieldType.row(fromNestedSchema).withNullable(true))
+                    .withNullable(true))
+            .build();
+
+    HashMap<Integer, String> fromNestedValue = new HashMap<>();
+    fromNestedValue.put(3, null);
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(fromNestedValue).build();
+
+    Schema toNestedSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING)
+            .addField("int32", FieldType.INT32)
+            .build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.INT32, FieldType.row(toNestedSchema).withNullable(true))
+                    .withNullable(true))
+            .build();
+
+    HashMap<Integer, String> toNestedValue = new HashMap<>();
+    toNestedValue.put(3, null);
+
+    Row toRow = Row.withSchema(toSchema).addValue(toNestedValue).build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_MapKeyNested_Success_NonNull() {
+    Schema fromNestedSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING)
+            .build();
+
+    Schema fromSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.row(fromNestedSchema), FieldType.INT32).withNullable(true))
+            .build();
+
+    Row fromRow =
+        Row.withSchema(fromSchema)
+            .addValue(
+                ImmutableMap.of(Row.withSchema(fromNestedSchema).addValues(10, "ten").build(), 10))
+            .build();
+
+    Schema toNestedSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING)
+            .addField("int32", FieldType.INT32)
+            .build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.row(toNestedSchema), FieldType.INT32).withNullable(true))
+            .build();
+
+    Row toRow =
+        Row.withSchema(toSchema)
+            .addValue(
+                ImmutableMap.of(Row.withSchema(toNestedSchema).addValues("ten", 10).build(), 10))
+            .build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_MapKeyNested_Success_Null() {
+    Schema fromNestedSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING)
+            .build();
+
+    Schema fromSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.row(fromNestedSchema).withNullable(true), FieldType.INT32)
+                    .withNullable(true))
+            .build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(null).build();
+
+    Schema toNestedSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING)
+            .addField("int32", FieldType.INT32)
+            .build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.row(toNestedSchema).withNullable(true), FieldType.INT32)
+                    .withNullable(true))
+            .build();
+
+    Row toRow = Row.withSchema(toSchema).addValue(null).build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_MapKeyNested_Success_NullKeyNested() {
+    Schema fromNestedSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING)
+            .build();
+
+    Schema fromSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.row(fromNestedSchema).withNullable(true), FieldType.INT32)
+                    .withNullable(true))
+            .build();
+
+    HashMap<Row, Integer> fromNestedValue = new HashMap<>();
+    fromNestedValue.put(null, 3);
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(fromNestedValue).build();
+
+    Schema toNestedSchema =
+        Schema.builder()
+            .addField("string", FieldType.STRING)
+            .addField("int32", FieldType.INT32)
+            .build();
+
+    Schema toSchema =
+        Schema.builder()
+            .addField(
+                "map",
+                FieldType.map(FieldType.row(toNestedSchema).withNullable(true), FieldType.INT32)
+                    .withNullable(true))
+            .build();
+
+    HashMap<Row, Integer> toNestedValue = new HashMap<>();
+    toNestedValue.put(null, 3);
+
+    Row toRow = Row.withSchema(toSchema).addValue(toNestedValue).build();
+
+    Row row = fromRow.applySchema(toSchema);
+    assertEquals(toRow, row);
+  }
+
+  @Test
+  public void testApplySchema_Failure_DifferentName() {
+    Schema fromSchema = Schema.builder().addField("int32", FieldType.INT32).build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(1).build();
+
+    Schema toSchema = Schema.builder().addField("not_int32", FieldType.INT32).build();
+
+    assertThrows(RuntimeException.class, () -> fromRow.applySchema(toSchema));
+  }
+
+  @Test
+  public void testApplySchema_Failure_DifferentType() {
+    Schema fromSchema = Schema.builder().addField("int32", FieldType.INT32).build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(1).build();
+
+    Schema toSchema = Schema.builder().addField("int32", FieldType.STRING).build();
+
+    assertThrows(RuntimeException.class, () -> fromRow.applySchema(toSchema));
+  }
+
+  @Test
+  public void testApplySchema_Failure_DifferentFieldCount() {
+    Schema fromSchema =
+        Schema.builder()
+            .addField("int32", FieldType.INT32)
+            .addField("string", FieldType.STRING.withNullable(true))
+            .build();
+
+    Row fromRow = Row.withSchema(fromSchema).addValue(1).addValue(null).build();
+
+    Schema toSchema = Schema.builder().addField("int32", FieldType.INT32).build();
+
+    assertThrows(RuntimeException.class, () -> fromRow.applySchema(toSchema));
   }
 }
