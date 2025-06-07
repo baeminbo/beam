@@ -189,13 +189,18 @@ public class JsonReadSchemaTransformFormatProviderTest
             .build();
 
     SchemaTransform readTransform = new FileReadSchemaTransformProvider().from(config);
-    PCollectionRowTuple output = PCollectionRowTuple.empty(readPipeline).apply(readTransform);
+    PCollection<Row> output =
+        PCollectionRowTuple.empty(readPipeline)
+            .apply(readTransform)
+            .get(FileReadSchemaTransformProvider.OUTPUT_TAG);
 
+    System.out.println("output.getSchema() = " + output.getSchema());
     List<Row> expectedRows =
-        rows.stream().map(row -> getExpectedRow(row)).collect(Collectors.toList());
+        rows.stream()
+            .map(row -> getExpectedRow(row).applySchema(output.getSchema()))
+            .collect(Collectors.toList());
 
-    PAssert.that(output.get(FileReadSchemaTransformProvider.OUTPUT_TAG))
-        .containsInAnyOrder(expectedRows);
+    PAssert.that(output).containsInAnyOrder(expectedRows);
     readPipeline.run();
   }
 

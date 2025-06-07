@@ -957,6 +957,10 @@ public abstract class Row implements Serializable {
    * fields are not considered in this comparison. Despite this, you cannot pass a {@code null}
    * value to a field that is non-nullable in the new schema; doing so will cause a {@link Row}
    * build error.
+   *
+   * <p>When comparing field types, this method uses the underlying base type of any logical types.
+   * For instance, this means a {@link org.apache.beam.sdk.schemas.logicaltypes.FixedString} is
+   * considered comparable to its base type, {@link FieldType#STRING}.
    */
   public @NonNull Row applySchema(@NonNull Schema newSchema) {
     Preconditions.checkArgument(
@@ -977,7 +981,9 @@ public abstract class Row implements Serializable {
               Field currentField = schema.getField(newField.getName());
               try {
                 @Nullable Object fieldValue = getValue(currentField.getName());
-                return applyFieldType(currentField.getType(), newField.getType(), fieldValue);
+                return fieldValue != null
+                    ? applyFieldType(currentField.getType(), newField.getType(), fieldValue)
+                    : null;
               } catch (RuntimeException e) {
                 throw new IllegalArgumentException(
                     Strings.lenientFormat(
@@ -989,81 +995,119 @@ public abstract class Row implements Serializable {
         .collect(toRow(newSchema));
   }
 
-  private static @Nullable Object applyFieldType(
-      FieldType currentFieldType, FieldType newFieldType, @Nullable Object value) {
-    Preconditions.checkArgument(
-        currentFieldType.getTypeName() == newFieldType.getTypeName(),
-        "Field type name mismatch. currentFieldType: %s, newFieldType: %s",
-        currentFieldType,
-        newFieldType);
+  private static @NonNull Object applyFieldType(
+      FieldType from, FieldType to, @NonNull Object value) {
 
-    if (value == null) {
-      return null;
+    if (from.getTypeName().isLogicalType()) {
+      @SuppressWarnings("unchecked")
+      Schema.LogicalType<Object, ?> fromLogicalType =
+          (Schema.LogicalType<Object, ?>) from.getLogicalType();
+      return applyFieldType(fromLogicalType.getBaseType(), to, fromLogicalType.toBaseType(value));
+    } else if (to.getTypeName().isLogicalType()) {
+      @SuppressWarnings("unchecked")
+      Schema.LogicalType<?, Object> toLogicalType =
+          (Schema.LogicalType<?, Object>) to.getLogicalType();
+      return toLogicalType.toInputType(applyFieldType(from, toLogicalType.getBaseType(), value));
+    } else {
+      return applyNonLogicalFieldType(from, to, value);
     }
+  }
 
-    switch (currentFieldType.getTypeName()) {
-      case BYTE:
-      case INT16:
-      case INT32:
-      case INT64:
-      case DECIMAL:
-      case FLOAT:
-      case DOUBLE:
-      case STRING:
-      case DATETIME:
-      case BOOLEAN:
-      case BYTES:
-        return value;
-      case ARRAY:
-      case ITERABLE:
-        @SuppressWarnings("unchecked")
-        List<Object> elements = (List<Object>) value;
-        List<Object> newElements = new ArrayList<>();
-        for (Object element : elements) {
-          newElements.add(
-              applyFieldType(
-                  currentFieldType.getCollectionElementType(),
-                  newFieldType.getCollectionElementType(),
-                  element));
-        }
-        return newElements;
-      case MAP:
-        FieldType keyType = currentFieldType.getMapKeyType();
-        FieldType valueTypel = currentFieldType.getMapValueType();
-        FieldType newKeyType = newFieldType.getMapKeyType();
-        FieldType newValueType = newFieldType.getMapValueType();
+  private static @NonNull Object applyNonLogicalFieldType(
+      FieldType from, FieldType to, @NonNull Object object) {
+    if (to.getTypeName().isNumericType()) {
+      Preconditions.checkArgument(
+          from.getTypeName().isNumericType(),
+          "Field type mismatch. Current type is not numeric, while new type is numeric. from: %s, to: %s",
+          from.getTypeName(),
+          to.getTypeName());
 
-        @SuppressWarnings("unchecked")
-        Map<Object, Object> map = (Map<Object, Object>) value;
-        Map<Object, Object> newMap = new LinkedHashMap<>();
-        map.forEach(
-            (rowKey, rowValue) ->
-                newMap.put(
-                    applyFieldType(keyType, newKeyType, rowKey),
-                    applyFieldType(valueTypel, newValueType, rowValue)));
-        return newMap;
-      case ROW:
-        return ((Row) value).applySchema(Preconditions.checkNotNull(newFieldType.getRowSchema()));
-      case LOGICAL_TYPE:
-        @SuppressWarnings("unchecked")
-        Schema.LogicalType<Object, Object> logicalType =
-            (Schema.LogicalType<Object, Object>)
-                Preconditions.checkNotNull(currentFieldType.getLogicalType());
-        @SuppressWarnings("unchecked")
-        Schema.LogicalType<Object, Object> newLogicalType =
-            (Schema.LogicalType<Object, Object>)
-                Preconditions.checkNotNull(newFieldType.getLogicalType());
-        Preconditions.checkNotNull(
-            logicalType.getIdentifier().equals(newLogicalType.getIdentifier()),
-            "Logical type identifier mismatch: logicalType: %s, newLogicalType: %s",
-            logicalType.getIdentifier(),
-            newLogicalType.getIdentifier());
-        Object baesValue = logicalType.toBaseType(value);
-        Object newBaseValue =
-            applyFieldType(logicalType.getBaseType(), newLogicalType.getBaseType(), baesValue);
-        return newLogicalType.toInputType(newBaseValue);
-      default:
-        throw new RuntimeException("Unsupported field type: " + currentFieldType.getTypeName());
+      // different numeric type
+      switch (from.getTypeName()) {
+        case BYTE:
+          return ((Number) object).byteValue();
+        case INT16:
+          return ((Number) object).shortValue();
+        case INT32:
+          return ((Number) object).intValue();
+        case INT64:
+          return ((Number) object).longValue();
+        case FLOAT:
+          return ((Number) object).floatValue();
+        case DOUBLE:
+          return ((Number) object).doubleValue();
+        case DECIMAL:
+          Number number = (Number) object;
+          if (number instanceof BigDecimal) {
+            return object;
+          } else if (number instanceof Byte
+              || number instanceof Short
+              || number instanceof Integer
+              || number instanceof Long) {
+            return new BigDecimal(number.longValue());
+          } else if (number instanceof Float || number instanceof Double) {
+            return new BigDecimal(number.doubleValue());
+          } else {
+            return new BigDecimal(number.toString());
+          }
+        default:
+          throw new RuntimeException("Unrecognized numeric type: " + from.getTypeName());
+      }
+    } else if (to.getTypeName().isCollectionType()) {
+      Preconditions.checkArgument(
+          from.getTypeName().isCollectionType(),
+          "Field type mismatch. Current type is not collection, while new type is collection. from: %s, to: %s",
+          from.getTypeName(),
+          to.getTypeName());
+
+      FieldType elementType = Preconditions.checkNotNull(from.getCollectionElementType());
+      FieldType newElementType = Preconditions.checkNotNull(to.getCollectionElementType());
+
+      @SuppressWarnings("unchecked")
+      List<@Nullable Object> elements = (List<@Nullable Object>) object;
+      List<@Nullable Object> newElements = new ArrayList<>();
+      for (@Nullable Object element : elements) {
+        newElements.add(
+            element != null ? applyFieldType(elementType, newElementType, element) : null);
+      }
+      return newElements;
+    } else if (to.getTypeName().isMapType()) {
+      Preconditions.checkArgument(
+          from.getTypeName().isMapType(),
+          "Field type mismatch. Current type is not map, while new type is map. from: %s, to: %s",
+          from.getTypeName(),
+          to.getTypeName());
+
+      FieldType keyType = Preconditions.checkNotNull(from.getMapKeyType());
+      FieldType valueType = Preconditions.checkNotNull(from.getMapValueType());
+      FieldType newKeyType = Preconditions.checkNotNull(to.getMapKeyType());
+      FieldType newValueType = Preconditions.checkNotNull(to.getMapValueType());
+
+      @SuppressWarnings("unchecked")
+      Map<@Nullable Object, @Nullable Object> map =
+          (Map<@Nullable Object, @Nullable Object>) object;
+      Map<@Nullable Object, @Nullable Object> newMap = new LinkedHashMap<>();
+      map.forEach(
+          (key, value) ->
+              newMap.put(
+                  key != null ? applyFieldType(keyType, newKeyType, key) : null,
+                  value != null ? applyFieldType(valueType, newValueType, value) : null));
+      return newMap;
+    } else if (to.getTypeName().isCompositeType()) {
+      Preconditions.checkArgument(
+          from.getTypeName().isCompositeType(),
+          "Field type mismatch. Current type is not row, while new type is row. from: %s, to: %s",
+          from.getTypeName(),
+          to.getTypeName());
+
+      return ((Row) object).applySchema(Preconditions.checkNotNull(to.getRowSchema()));
+    } else {
+      Preconditions.checkArgument(
+          from.getTypeName() == to.getTypeName(),
+          "Field type name mismatch. from: %s, to: %s",
+          from,
+          to);
+      return object;
     }
   }
 }

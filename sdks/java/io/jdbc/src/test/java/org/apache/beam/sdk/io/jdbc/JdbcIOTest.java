@@ -64,6 +64,7 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.Pipeline.PipelineExecutionException;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.RowCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.VarIntCoder;
@@ -83,6 +84,7 @@ import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.transforms.Count;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Wait;
@@ -1459,13 +1461,13 @@ public class JdbcIOTest implements Serializable {
   public void testWriteReadNullableTypes() throws SQLException {
     // first setup data
     Schema.Builder schemaBuilder = Schema.builder();
-    schemaBuilder.addField("column_id", FieldType.INT32.withNullable(false));
-    schemaBuilder.addField("column_bigint", Schema.FieldType.INT64.withNullable(true));
-    schemaBuilder.addField("column_boolean", FieldType.BOOLEAN.withNullable(true));
-    schemaBuilder.addField("column_float", Schema.FieldType.FLOAT.withNullable(true));
-    schemaBuilder.addField("column_double", Schema.FieldType.DOUBLE.withNullable(true));
+    schemaBuilder.addField("COLUMN_ID", FieldType.INT32.withNullable(false));
+    schemaBuilder.addField("COLUMN_BIGINT", Schema.FieldType.INT64.withNullable(true));
+    schemaBuilder.addField("COLUMN_BOOLEAN", FieldType.BOOLEAN.withNullable(true));
+    schemaBuilder.addField("COLUMN_FLOAT", Schema.FieldType.FLOAT.withNullable(true));
+    schemaBuilder.addField("COLUMN_DOUBLE", Schema.FieldType.DOUBLE.withNullable(true));
     schemaBuilder.addField(
-        "column_decimal",
+        "COLUMN_DECIMAL",
         FieldType.logicalType(FixedPrecisionNumeric.of(13, 0)).withNullable(true));
     Schema schema = schemaBuilder.build();
 
@@ -1474,12 +1476,12 @@ public class JdbcIOTest implements Serializable {
     StringBuilder stmt = new StringBuilder("CREATE TABLE ");
     stmt.append(tableName);
     stmt.append(" (");
-    stmt.append("column_id      INTEGER NOT NULL,"); // Integer
-    stmt.append("column_bigint  BIGINT,"); // int64
-    stmt.append("column_boolean BOOLEAN,"); // boolean
-    stmt.append("column_float  REAL,"); // float
-    stmt.append("column_double  DOUBLE PRECISION,"); // double
-    stmt.append("column_decimal    DECIMAL(13,0)"); // BigDecimal
+    stmt.append("COLUMN_ID      INTEGER NOT NULL,"); // Integer
+    stmt.append("COLUMN_BIGINT  BIGINT,"); // int64
+    stmt.append("COLUMN_BOOLEAN BOOLEAN,"); // boolean
+    stmt.append("COLUMN_FLOAT  REAL,"); // float
+    stmt.append("COLUMN_DOUBLE  DOUBLE PRECISION,"); // double
+    stmt.append("COLUMN_DECIMAL    DECIMAL(13,0)"); // BigDecimal
     stmt.append(" )");
     DatabaseTestHelper.createTableWithStatement(DATA_SOURCE, stmt.toString());
     final int rowsToAdd = 10;
@@ -1499,10 +1501,22 @@ public class JdbcIOTest implements Serializable {
 
       // run read pipeline
       PCollection<Row> rows =
-          secondPipeline.apply(
-              JdbcIO.readRows()
-                  .withDataSourceConfiguration(DATA_SOURCE_CONFIGURATION)
-                  .withQuery("SELECT * FROM " + tableName));
+          secondPipeline
+              .apply(
+                  JdbcIO.readRows()
+                      .withDataSourceConfiguration(DATA_SOURCE_CONFIGURATION)
+                      .withQuery("SELECT * FROM " + tableName))
+              // Because the schema inferred in JdbcIO doesn't match the `schema`, we should
+              // convert it to the `schema` manually.
+              .apply(
+                  ParDo.of(
+                      new DoFn<Row, Row>() {
+                        @DoFn.ProcessElement
+                        public void processElement(ProcessContext c) {
+                          c.output(c.element().applySchema(schema));
+                        }
+                      }))
+              .setCoder(RowCoder.of(schema));
       PAssert.thatSingleton(rows.apply("Count All", Count.globally())).isEqualTo((long) rowsToAdd);
       PAssert.that(rows).containsInAnyOrder(data);
 
