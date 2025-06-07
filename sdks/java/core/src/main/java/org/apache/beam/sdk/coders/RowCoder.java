@@ -31,7 +31,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /** A sub-class of SchemaCoder that can only encode {@link Row} instances. */
 public class RowCoder extends SchemaCoder<Row> {
   public static RowCoder of(Schema schema) {
-    return new RowCoder(schema);
+    return new RowCoder(schema, true);
+  }
+
+  public static RowCoder of(Schema schema, boolean compatibility) {
+    return new RowCoder(schema, compatibility);
   }
 
   /** Override encoding positions for the given schema. */
@@ -44,12 +48,13 @@ public class RowCoder extends SchemaCoder<Row> {
     RowCoderGenerator.clearRowCoderCache();
   }
 
-  private RowCoder(Schema schema) {
+  private RowCoder(Schema schema, boolean compatibility) {
     super(
         schema,
         TypeDescriptors.rows(),
         SerializableFunctions.identity(),
-        SerializableFunctions.identity());
+        SerializableFunctions.identity(),
+        compatibility);
   }
 
   @Override

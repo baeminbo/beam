@@ -49,12 +49,22 @@ public class SchemaCoder<T> extends CustomCoder<T> {
   private final SerializableFunction<T, Row> toRowFunction;
   private final SerializableFunction<Row, T> fromRowFunction;
   private transient @Nullable Coder<Row> delegateCoder;
+  private final boolean compatibilityCheck;
 
   protected SchemaCoder(
       Schema schema,
       TypeDescriptor<T> typeDescriptor,
       SerializableFunction<T, Row> toRowFunction,
       SerializableFunction<Row, T> fromRowFunction) {
+    this(schema, typeDescriptor, toRowFunction, fromRowFunction, true);
+  }
+
+  protected SchemaCoder(
+      Schema schema,
+      TypeDescriptor<T> typeDescriptor,
+      SerializableFunction<T, Row> toRowFunction,
+      SerializableFunction<Row, T> fromRowFunction,
+      boolean compatibilityCheck) {
     checkArgument(
         !typeDescriptor.hasUnresolvedParameters(),
         "Cannot create SchemaCoder with a TypeDescriptor that has unresolved parameters: %s",
@@ -68,6 +78,7 @@ public class SchemaCoder<T> extends CustomCoder<T> {
     this.fromRowFunction = fromRowFunction;
     this.typeDescriptor = typeDescriptor;
     this.schema = schema;
+    this.compatibilityCheck = compatibilityCheck;
   }
 
   /**
@@ -80,7 +91,7 @@ public class SchemaCoder<T> extends CustomCoder<T> {
       TypeDescriptor<T> typeDescriptor,
       SerializableFunction<T, Row> toRowFunction,
       SerializableFunction<Row, T> fromRowFunction) {
-    return new SchemaCoder<>(schema, typeDescriptor, toRowFunction, fromRowFunction);
+    return new SchemaCoder<>(schema, typeDescriptor, toRowFunction, fromRowFunction, true);
   }
 
   /** Returns a {@link SchemaCoder} for {@link Row} instances with the given {@code schema}. */
@@ -120,11 +131,14 @@ public class SchemaCoder<T> extends CustomCoder<T> {
   @Override
   public void encode(T value, OutputStream outStream) throws IOException {
     Row row = toRowFunction.apply(value);
-    Preconditions.checkArgument(
-        row.getSchema().assignableTo(schema),
-        "Cannot assign row schema to coder schema. row: %s, coder: %s",
-        row.getSchema(),
-        schema);
+    if (compatibilityCheck) {
+      Preconditions.checkArgument(
+          row.getSchema().assignableTo(schema),
+          "Cannot assign row schema to coder schema. row schema: %s, coder schema: %s, row: %s",
+          row.getSchema(),
+          schema,
+          row);
+    }
     getDelegateCoder().encode(row, outStream);
   }
 

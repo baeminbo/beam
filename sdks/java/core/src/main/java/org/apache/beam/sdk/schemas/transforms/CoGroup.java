@@ -28,6 +28,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.RowCoder;
 import org.apache.beam.sdk.schemas.FieldAccessDescriptor;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.FieldType;
@@ -444,7 +445,7 @@ public class CoGroup {
                       o.output(KV.of(rowSelector.select(row), row));
                     }
                   }))
-          .setCoder(KvCoder.of(SchemaCoder.of(keySchema), SchemaCoder.of(schema)));
+          .setCoder(KvCoder.of(RowCoder.of(keySchema, false), SchemaCoder.of(schema)));
     }
   }
 

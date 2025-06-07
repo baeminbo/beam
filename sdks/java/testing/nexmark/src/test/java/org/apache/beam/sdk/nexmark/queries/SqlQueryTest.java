@@ -74,6 +74,7 @@ public class SqlQueryTest {
         boolean streamingMode) {
       NexmarkUtils.setupPipeline(NexmarkUtils.CoderStrategy.HAND, p);
 
+      System.out.println("model = " + model.configuration);
       PCollection<Event> events =
           p.apply(
               name + ".Read",

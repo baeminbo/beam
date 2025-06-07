@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.beam.sdk.coders.RowCoder;
 import org.apache.beam.sdk.schemas.FieldAccessDescriptor;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.Schema.Field;
@@ -204,7 +205,7 @@ public class Select {
       }
       return input
           .apply(ParDo.of(new SelectDoFn<>(resolved, inputSchema, outputSchema)))
-          .setRowSchema(outputSchema);
+          .setCoder(RowCoder.of(outputSchema, false));
     }
   }
 
